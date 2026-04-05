@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SolarSystem Web - Build Tutorial</title>
+    <style>
+        :root {
+            --bg: #0a0a14;
+            --surface: #12121f;
+            --border: #1e1e3a;
+            --text: #e0e0f0;
+            --accent: #ffaa33;
+            --prompt-bg: #0d1a2a;
+            --response-bg: #1a0d2a;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', system-ui, sans-serif;
+            line-height: 1.7;
+            padding: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(90deg, #ff6600, #ffaa33, #ffdd66, #ffaa33, #ff6600);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #888;
+            font-size: 0.95rem;
+            margin-bottom: 2rem;
+        }
+
+        .step { margin-bottom: 2.5rem; }
+
+        .step-number {
+            display: inline-block;
+            background: linear-gradient(135deg, #ff6600, #ffaa33);
+            color: white; width: 32px; height: 32px; border-radius: 50%;
+            text-align: center; line-height: 32px;
+            font-weight: bold; font-size: 0.9rem; margin-right: 0.5rem;
+        }
+
+        .step-title { display: inline; font-size: 1.2rem; color: var(--accent); }
+
+        .prompt {
+            background: var(--prompt-bg);
+            border-left: 3px solid #0066ff;
+            border-radius: 0 8px 8px 0;
+            padding: 1rem 1.25rem; margin: 1rem 0; font-style: italic;
+        }
+        .prompt::before { content: "Prompt: "; font-weight: bold; font-style: normal; color: #4488ff; }
+
+        .response {
+            background: var(--response-bg);
+            border-left: 3px solid #8844ff;
+            border-radius: 0 8px 8px 0;
+            padding: 1rem 1.25rem; margin: 1rem 0;
+        }
+        .response::before { content: "Approach: "; font-weight: bold; color: #aa66ff; }
+
+        .outcome {
+            background: var(--surface);
+            border: 1px solid var(--border); border-radius: 8px;
+            padding: 1rem 1.25rem; margin: 1rem 0;
+        }
+        .outcome::before { content: "Outcome: "; font-weight: bold; color: #00cc88; }
+
+        .tech-note {
+            background: #1a1a0d;
+            border-left: 3px solid #ccaa00;
+            border-radius: 0 8px 8px 0;
+            padding: 0.75rem 1rem; margin: 0.75rem 0; font-size: 0.9rem;
+        }
+        .tech-note::before { content: "Technical note: "; font-weight: bold; color: #ccaa00; }
+
+        code {
+            background: #1a1a2e; padding: 0.15rem 0.4rem; border-radius: 4px;
+            font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+            font-size: 0.88rem; color: #aaddff;
+        }
+    </style>
+</head>
+<body>
+    <h1>SolarSystem Web</h1>
+    <p class="subtitle">Build Tutorial &mdash; Porting an iOS app to the browser in a single conversation</p>
+
+    <!-- Step 1 -->
+    <div class="step">
+        <span class="step-number">1</span>
+        <h2 class="step-title">The Vision &mdash; From iOS to Everywhere</h2>
+
+        <div class="prompt">You helped me build an amazing iPhone project, SolarSystem. I would also like to make this into a web-based application, written in JavaScript, using Three.js and runnable in all modern browsers. Do you think the web platform is up to it? I'd prefer minimal dependencies apart from Three.js, and I'd want it to look as beautiful (with all the texture maps) and smooth as the iPhone version.</div>
+
+        <div class="response">Analysis showed the port was not just feasible but ideal. Three.js maps almost 1:1 to SceneKit: <code>MeshStandardMaterial</code> for PBR, <code>SphereGeometry</code> for planets, <code>Quaternion</code> for rotations, <code>Raycaster</code> for hit testing. The orbital mechanics is pure math &mdash; portable as-is. The only dependency needed: Three.js itself, loaded from CDN. No npm, no bundler, no build step.</div>
+
+        <div class="outcome">Confirmed the approach: a single <code>index.html</code> plus 6 ES module files, zero build tooling. Three.js loaded via import map from CDN. All 17 texture files copied from the iOS project. The scene complexity (~30 meshes, 9K star points) is trivial for WebGL.</div>
+
+        <div class="tech-note">The key insight was that SceneKit and Three.js share the same rendering model: a scene graph with meshes, materials, lights, and a camera. Every concept has a direct equivalent. The only real difference is the gesture system &mdash; iOS has structured <code>UIGestureRecognizer</code> classes, while the web has raw mouse/touch events that need manual state tracking.</div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="step">
+        <span class="step-number">2</span>
+        <h2 class="step-title">Building the Entire App in One Pass</h2>
+
+        <div class="prompt">Yes let's go for it! We have an ocean of tokens available.</div>
+
+        <div class="response">Built the complete application in a single pass: read all 12 Swift source files from the iOS project, understood every algorithm and constant, then wrote the full JavaScript port across 6 modules. Every formula was transcribed exactly &mdash; the same JPL elements, the same Kepler solver, the same logarithmic distance scaling, the same quaternion rotation model. The UI was designed as HTML/CSS overlays matching the iOS toolbar layout.</div>
+
+        <div class="outcome">6 JavaScript files totalling ~1,680 lines. All 9 planets, 16 moons, the Sun with 4-layer corona, Saturn's rings, 8,920 stars, orbital paths, labels, time controls, and a custom camera controller &mdash; all working on first load. The iOS app's CLAUDE.md served as a precise specification.</div>
+
+        <div class="tech-note">The port was made possible by the iOS project's meticulous CLAUDE.md documentation. Every constant, every formula, every design decision was recorded &mdash; making it possible to reproduce the entire rendering pipeline in a different language and framework without guesswork.</div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="step">
+        <span class="step-number">3</span>
+        <h2 class="step-title">The file:// Trap</h2>
+
+        <div class="prompt">Can I test it by simply opening index.html as a file in my browser?</div>
+
+        <div class="response">No &mdash; browsers enforce strict CORS restrictions on <code>file://</code> URLs. ES module <code>import</code> statements fail, <code>fetch()</code> for the star catalogue CSV is blocked, and <code>TextureLoader</code> can't read local JPEG files. The solution is trivial: <code>python3 -m http.server 8080</code> starts a local server in one line.</div>
+
+        <div class="outcome">A one-liner gets you running: <code>python3 -m http.server 8080</code>, then open <code>http://localhost:8080</code>. No installation, no configuration, works on any machine with Python 3.</div>
+
+        <div class="tech-note">This is the most common pitfall when developing web apps with ES modules. The <code>file://</code> protocol has an opaque origin, so the browser treats every file as a different origin. A local HTTP server makes everything same-origin. Any static server works &mdash; Python, Node's <code>npx serve</code>, VS Code's Live Server extension, etc.</div>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="step">
+        <span class="step-number">4</span>
+        <h2 class="step-title">Lighting the Scene</h2>
+
+        <div class="prompt">This is amazing! It works really well.</div>
+
+        <div class="response">The initial version used SceneKit-style light intensity (2000), but Three.js uses physically correct lighting by default with different falloff calculations. Tuned the <code>PointLight</code> intensity down to 50 and set <code>toneMappingExposure</code> to 1.2 with ACES filmic tone mapping to get the natural, film-like look that matches SceneKit's rendering.</div>
+
+        <div class="outcome">Planets are correctly lit: bright day sides facing the Sun, dark night sides in shadow, with just enough ambient light (0x262626) to prevent pure black. PBR roughness values per planet (Earth 0.5, Mercury 0.95, Jupiter 0.9) match the iOS app exactly.</div>
+
+        <div class="tech-note">Three.js's physically correct mode (<code>renderer.useLegacyLights</code> was removed in r155) means light intensity is measured in candela, not arbitrary units. Combined with ACES tone mapping, the rendered image maps HDR lighting values to the display's SDR range in a way that mimics film exposure curves &mdash; highlights compress gradually instead of clipping.</div>
+    </div>
+
+    <!-- Step 5 -->
+    <div class="step">
+        <span class="step-number">5</span>
+        <h2 class="step-title">Sun Corona with Sprites</h2>
+
+        <div class="response">The iOS app uses nested translucent spheres with additive blending for the Sun's corona. On the web, <code>THREE.Sprite</code> is a better fit &mdash; sprites always face the camera (billboard behaviour), which is exactly what glow effects need. Four sprites at 1.3x, 1.8x, 2.8x, and 4.0x the Sun's radius, each with a radial gradient <code>CanvasTexture</code> and <code>AdditiveBlending</code>, produce the same warm multi-layer corona.</div>
+
+        <div class="outcome">The Sun glows naturally at all viewing angles. The inner layer is bright white-yellow, fading through orange to a very faint extended corona. The additive blending means the layers brighten the scene rather than occluding it.</div>
+
+        <div class="tech-note">Using <code>depthWrite: false</code> on the sprite materials prevents the transparent parts from writing to the depth buffer, which would create invisible rectangular occluders. The sprites are child objects of the Sun mesh, so they move and scale with it automatically.</div>
+    </div>
+
+    <!-- Step 6 -->
+    <div class="step">
+        <span class="step-number">6</span>
+        <h2 class="step-title">Custom Camera with Touch Support</h2>
+
+        <div class="response">Three.js ships with <code>OrbitControls</code>, but it doesn't match the iOS app's gesture model: one-finger pan for translation, two-finger for orbit. Built a custom <code>CameraController</code> from scratch that manages spherical coordinates (target, distance, azimuth, elevation) and handles five input modes: left-drag pan, right-drag orbit, scroll zoom, click selection (via <code>Raycaster</code>), and double-click reset. Touch support maps the same gestures: one-finger pan, two-finger orbit+pinch.</div>
+
+        <div class="outcome">Camera behaviour is identical to the iOS app. Click a planet or its label to fly there. Double-click to return to the overview. Right-drag (or two-finger) to orbit around any focus point. Scroll to zoom logarithmically between 0.5 and 250 scene units.</div>
+
+        <div class="tech-note">Touch gesture disambiguation required a 5px dead zone: without it, every tap would start a pan. The double-click/tap detector uses a 350ms timeout to distinguish single from double. When a two-finger gesture ends with one finger still down, the controller transitions to one-finger pan mode without jumping. These subtleties don't exist in iOS's <code>UIGestureRecognizer</code> system, which handles them automatically.</div>
+    </div>
+
+    <!-- Step 7 -->
+    <div class="step">
+        <span class="step-number">7</span>
+        <h2 class="step-title">The Zoom Slider Mismatch</h2>
+
+        <div class="prompt">The only issue I can see is that there is still a discrepancy between the zoom slider range and the preset zoom you get when you select a planet.</div>
+
+        <div class="response">When clicking a planet in the picker menu, <code>focusCamera()</code> set the camera distance programmatically but didn't update the zoom slider. The slider only synced during the animation loop every 3rd frame &mdash; and if the camera moved while paused, it never synced at all. Added <code>syncZoomSlider()</code> calls immediately after both <code>focusCamera()</code> and <code>resetCamera()</code>.</div>
+
+        <div class="outcome">Zoom slider now jumps instantly to match the camera distance when selecting a planet or resetting to overview. The same fix was needed in the iOS app (documented in the iOS CLAUDE.md as "Zoom range consistency").</div>
+
+        <div class="tech-note">This is a classic state synchronisation bug. The zoom slider, camera distance, scroll wheel, and pinch gesture all modify the same underlying value (<code>cameraController.distance</code>). Every entry point that changes the distance must also update the UI. The iOS app solved this identically &mdash; ensuring all zoom controls clamp to the same 0.5&ndash;250 range and calling <code>syncZoomFromCamera()</code> after programmatic changes.</div>
+    </div>
+
+    <!-- Step 8 -->
+    <div class="step">
+        <span class="step-number">8</span>
+        <h2 class="step-title">Credits Where Credits Are Due</h2>
+
+        <div class="prompt">Where should we attribute sources in the web app?</div>
+
+        <div class="response">Added a "Credits" button in the top-right corner of the date bar. Clicking it opens a glass-morphism modal overlay listing every texture source (NASA, Solar System Scope, Planet Pixel Emporium), the HYG star catalogue, JPL orbital elements, and Three.js. Dismissible by clicking the X or clicking outside the panel.</div>
+
+        <div class="outcome">Full attribution is accessible from any point in the app, without cluttering the main interface. Every NASA public domain image, every CC-BY source, every data set is credited with its original author and licence.</div>
+
+        <div class="tech-note">The overlay uses <code>backdrop-filter: blur(10px)</code> at z-index 50 (above all other UI). The panel scrolls independently (<code>max-height: 80vh; overflow-y: auto</code>) for smaller screens. Three event listeners handle dismissal: the X button, clicking the backdrop (checking <code>e.target === overlay</code>), and the Escape key would be a natural future addition.</div>
+    </div>
+
+    <!-- Step 9 -->
+    <div class="step">
+        <span class="step-number">9</span>
+        <h2 class="step-title">Planet Strip &mdash; Textures in the Toolbar</h2>
+
+        <div class="prompt">I'm thinking we could move the planet presets to be individual clickable objects in the bottom bar, using the actual planet texture maps &mdash; what do you think?</div>
+
+        <div class="response">Replaced the dropdown planet picker with a row of 32px circular thumbnails embedded directly in the toolbar. Each planet uses its NASA JPEG as a CSS <code>background-image</code> clipped to a circle. Saturn gets a decorative ring overlay &mdash; an elliptical CSS border with <code>rotateX(65deg)</code> 3D transform. The Sun uses a radial gradient. An overview button with a star glyph sits at the far left.</div>
+
+        <div class="outcome">The toolbar now serves as both a control panel and a visual map of the solar system. Every planet is instantly recognisable from its real texture. A divider separates the rocky inner planets from the gas giants. Clicking any thumbnail flies the camera there with an orange selection ring. Hovering reveals the planet name beneath.</div>
+
+        <!-- Planet strip SVG illustration -->
+        <div style="display: flex; justify-content: center; margin: 1.5rem 0;">
+        <svg viewBox="0 0 480 70" width="460" xmlns="http://www.w3.org/2000/svg" style="font-family: -apple-system, system-ui, sans-serif;">
+            <rect width="480" height="70" fill="#1e1e1e" rx="8"/>
+
+            <!-- Controls section -->
+            <text x="16" y="40" fill="#fff" font-size="14">&#x23F8;</text>
+            <text x="36" y="40" fill="#ffaa33" font-size="10">&#x23F1; 1x</text>
+            <text x="72" y="40" fill="#ffaa33" font-size="14">&#x25EF;</text>
+            <text x="92" y="40" fill="#ffaa33" font-size="11">&#x1F3F7;</text>
+
+            <!-- Separator -->
+            <line x1="115" y1="18" x2="115" y2="52" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+
+            <!-- Overview -->
+            <circle cx="135" cy="35" r="12" fill="#0d0d1a" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+            <text x="135" y="39" fill="rgba(255,255,255,0.4)" font-size="10" text-anchor="middle">&#x2726;</text>
+
+            <!-- Divider -->
+            <line x1="155" y1="22" x2="155" y2="48" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+
+            <!-- Sun -->
+            <circle cx="175" cy="35" r="12" fill="#ffcc44"/>
+            <circle cx="175" cy="35" r="12" fill="url(#sunG)" opacity="0.7"/>
+            <text x="175" y="62" fill="rgba(255,255,255,0.35)" font-size="7" text-anchor="middle">Sun</text>
+
+            <!-- Inner planets -->
+            <circle cx="205" cy="35" r="12" fill="#998877"/>
+            <circle cx="235" cy="35" r="12" fill="#ddcc99"/>
+            <circle cx="265" cy="35" r="12" fill="#3366cc" stroke="#ffaa33" stroke-width="2"/>
+            <text x="265" y="62" fill="rgba(255,255,255,0.5)" font-size="7" text-anchor="middle">Earth</text>
+            <circle cx="295" cy="35" r="12" fill="#cc5533"/>
+
+            <!-- Divider -->
+            <line x1="315" y1="22" x2="315" y2="48" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+
+            <!-- Outer planets -->
+            <circle cx="335" cy="35" r="12" fill="#ccaa77"/>
+            <circle cx="365" cy="35" r="12" fill="#ccaa66"/>
+            <ellipse cx="365" cy="35" rx="18" ry="6" fill="none" stroke="rgba(180,160,120,0.5)" stroke-width="1.5"/>
+            <circle cx="395" cy="35" r="12" fill="#88ccdd"/>
+            <circle cx="425" cy="35" r="12" fill="#4466cc"/>
+            <circle cx="455" cy="35" r="12" fill="#bbaa88"/>
+
+            <defs>
+                <radialGradient id="sunG" cx="35%" cy="35%">
+                    <stop offset="0%" stop-color="#fff8cc"/>
+                    <stop offset="100%" stop-color="#cc8800"/>
+                </radialGradient>
+            </defs>
+        </svg>
+        </div>
+
+        <div class="tech-note">The thumbnails use <code>flex: 1</code> within the toolbar to distribute evenly across the available width. The planet strip takes whatever space remains after the playback controls. Saturn's ring is a pure CSS effect &mdash; a <code>border-radius: 50%</code> div with <code>transform: translate(-50%, -50%) rotateX(65deg)</code>, positioned absolutely over the planet circle.</div>
+    </div>
+
+    <!-- Step 10 -->
+    <div class="step">
+        <span class="step-number">10</span>
+        <h2 class="step-title">Making Touch Work on iOS Safari</h2>
+
+        <div class="prompt">On my phone, the buttons all highlight but don't perform any action.</div>
+
+        <div class="response">Three things needed adjusting for iOS Safari's touch handling. First, <code>touch-action: none</code> on the full-screen canvas container was causing iOS's gesture system to capture all touches before they reached the overlaid UI &mdash; it needed to be scoped to the <code>&lt;canvas&gt;</code> element only. Second, <code>-webkit-user-select: none</code> on <code>&lt;body&gt;</code> was suppressing click event synthesis from touch events &mdash; again, scoped to the canvas container. Third, <code>click</code> events weren't always being synthesized from touches in the layered stacking context, so a dual-binding approach was needed.</div>
+
+        <div class="outcome">Introduced the <code>onTap()</code> helper, which binds both <code>touchend</code> and <code>click</code> with a flag to prevent double-firing. Every interactive element now fires immediately on touch. Desktop mouse behaviour is completely unaffected.</div>
+
+        <div class="tech-note">The <code>onTap()</code> pattern fires on <code>touchend</code> with <code>preventDefault()</code> (no 300ms delay), and falls back to <code>click</code> for mouse input. A <code>touchFired</code> flag prevents the <code>click</code> from re-firing when both events are synthesized. This is now used for every interactive element in the app &mdash; 20+ bindings in total. Desktop mouse behaviour is completely unaffected.</div>
+    </div>
+
+    <!-- Step 11 -->
+    <div class="step">
+        <span class="step-number">11</span>
+        <h2 class="step-title">Adaptive Layout &mdash; Phone and Desktop</h2>
+
+        <div class="prompt">Let's go back to a separate row of planet icons &mdash; it works better when running on phone with portrait aspect ratio. Or would adaptive be better?</div>
+
+        <div class="response">Adaptive is best &mdash; a CSS <code>@media (max-width: 700px)</code> breakpoint switches the toolbar from a single row (controls + planet strip inline) to a two-row layout (planet strip on top, controls below) using <code>flex-direction: column</code>. The planet strip also needed aspect-ratio-aware zoom: portrait phones have a narrow width, so the same camera distance that works on a wide desktop leaves planets tiny. Added a <code>portraitFactor</code> that scales the focus multiplier by <code>0.5 + 0.5 &times; min(aspect, 1.0)</code>.</div>
+
+        <div class="outcome">Desktop users see a clean single-bar layout. Phone users in portrait get properly sized planet thumbnails in their own row, and selecting a planet fills the narrow width appropriately. Landscape orientation on any device uses the desktop layout.</div>
+
+        <div class="tech-note">The aspect-ratio correction is applied in <code>focusCamera()</code>, not in CSS. The camera's field of view is fixed at 60&deg;, so the constraining dimension on portrait screens is width, not height. Without the correction, a planet at the "right" distance for a 16:9 desktop would appear at roughly half its intended visual size on a 9:16 phone &mdash; the multiplier drops to ~78% on a typical phone, bringing the camera closer to compensate.</div>
+    </div>
+
+    <!-- Step 12 -->
+    <div class="step">
+        <span class="step-number">12</span>
+        <h2 class="step-title">Zoom Tuning &mdash; Filling the Frame</h2>
+
+        <div class="prompt">Could we fill more of the available browser page with each planet and its moons? And for the planets without moons, let's make the preset zoom out some more so they are a similar visual size as the others.</div>
+
+        <div class="response">The iOS app used a 3.7&times; multiplier on the system extent for camera distance &mdash; derived from the narrow iPhone viewport. A browser window is much wider, so the same multiplier leaves the planet system as a small cluster. Reduced to 2.2&times; for planets with moons. For moonless planets (Mercury, Venus, Uranus, Neptune, Pluto), the extent is just the planet's scene radius (~0.06&ndash;0.2), so 2.2&times; made them fill the entire screen. Introduced a 6.0&times; multiplier for moonless bodies.</div>
+
+        <div class="outcome">Every planet now fills a comfortable portion of the viewport when selected. Jupiter with its four Galilean moons, Saturn with its ring system and seven moons, and lone planets like Mercury all appear at a visually consistent scale. The camera distance adapts to viewport proportions rather than assuming a phone screen.</div>
+
+        <div class="tech-note">The multipliers (2.2&times; with moons, 6.0&times; without) were tuned empirically. The underlying formula is <code>cameraDistance = max(extent &times; multiplier, 0.5)</code>, where <code>extent</code> is the maximum of the planet radius and the outermost moon's orbit distance plus its own radius. The 0.5 floor prevents the camera from going inside the body.</div>
+    </div>
+
+    <!-- Step 13 -->
+    <div class="step">
+        <span class="step-number">13</span>
+        <h2 class="step-title">Lessons from the Port</h2>
+
+        <div class="response">Several principles emerged from porting a native iOS app to the web:</div>
+
+        <div class="outcome">
+            <strong>What transferred perfectly:</strong> All orbital mechanics (pure math), body data (constants), rotation models (quaternions), scaling formulae, texture assets (JPEGs), star catalogue (CSV). The physics doesn't know what platform it's running on.
+            <br/><br/>
+            <strong>What needed adaptation:</strong> Lighting intensity values (SceneKit vs Three.js physically correct mode), glow rendering (nested spheres &rarr; billboard sprites), gesture handling (structured recognisers &rarr; raw events with state machines), UI layout (iOS toolbar icons &rarr; textured planet strip), camera framing (phone aspect &rarr; wide desktop), persistence (UserDefaults &rarr; not yet implemented).
+            <br/><br/>
+            <strong>What got easier:</strong> No Xcode project file management, instant deployment (just serve files), cross-platform by default, CSS glass-morphism UI, DOM labels (simpler than <code>projectPoint()</code> overlay in SwiftUI), CSS textures in toolbar (planet strip thumbnails using <code>background-image</code>).
+        </div>
+
+        <div class="tech-note">The most valuable asset in the port wasn't the code &mdash; it was the documentation. The iOS app's CLAUDE.md contained every formula, every constant, every design decision with its rationale. This turned a complex reverse-engineering task into a straightforward transcription. The lesson: invest in documentation not just for future developers, but for future platforms.</div>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Solar System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #000;
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            overflow: hidden;
+        }
+
+        #canvas-container {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        #canvas-container canvas {
+            display: block;
+            width: 100%; height: 100%;
+        }
+
+        /* Ensure labels don't interfere with text selection but stay non-selectable */
+        #labels {
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        /* Loading screen */
+        #loading {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: #000;
+            display: flex; align-items: center; justify-content: center;
+            flex-direction: column; gap: 16px;
+            z-index: 1000;
+            transition: opacity 0.5s ease;
+        }
+        #loading .spinner {
+            width: 40px; height: 40px;
+            border: 3px solid rgba(255, 170, 51, 0.2);
+            border-top-color: #ffaa33;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #loading span { color: #999; font-size: 14px; }
+
+        /* Labels overlay */
+        #labels {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .label {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            padding: 2px 6px;
+            font-weight: 500;
+            white-space: nowrap;
+            pointer-events: auto;
+        }
+        .label-planet { font-size: 12px; color: rgba(255,255,255,0.85); }
+        .label-moon   { font-size: 10px; color: rgba(255,255,255,0.6); font-weight: 400; }
+        .label-star   { font-size: 9px;  color: rgba(255,255,255,0.35); font-weight: 400; }
+
+        /* Top bar: date + speed */
+        #top-bar {
+            position: fixed; top: 0; left: 0; right: 0;
+            padding: 10px 16px;
+            background: rgba(30, 30, 30, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            display: flex; align-items: center; gap: 8px;
+            z-index: 20;
+            font-size: 13px;
+        }
+        #top-bar .clock-icon { color: #ffaa33; font-size: 12px; }
+        #date-display { color: #fff; }
+        #speed-badge {
+            color: #ffaa33; font-size: 11px;
+            background: rgba(255, 170, 51, 0.2);
+            padding: 2px 6px; border-radius: 4px;
+        }
+        #speed-badge.hidden { display: none; }
+
+        /* Info panel */
+        #info-panel {
+            position: fixed; top: 44px; left: 16px; right: 16px;
+            padding: 12px;
+            background: rgba(30, 30, 30, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 12px;
+            display: flex; align-items: center; gap: 12px;
+            z-index: 20;
+        }
+        #info-panel.hidden { display: none; }
+        #info-color {
+            width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        #info-text { flex: 1; }
+        #info-name { font-size: 16px; font-weight: 600; }
+        #info-details { font-size: 12px; color: #999; margin-top: 2px; }
+        #info-details .au { color: #ffaa33; }
+        #info-dismiss {
+            background: none; border: none; color: #999; font-size: 20px;
+            cursor: pointer; padding: 4px;
+        }
+
+        /* Bottom controls */
+        #bottom-bar {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            z-index: 20;
+        }
+
+        /* Zoom slider */
+        #zoom-container {
+            padding: 8px 16px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        #zoom-container .zoom-icon { color: rgba(255, 170, 51, 0.4); font-size: 10px; font-weight: 600; }
+        #zoom-slider {
+            flex: 1; height: 20px; position: relative; cursor: pointer;
+        }
+        #zoom-track {
+            position: absolute; top: 50%; left: 0; right: 0;
+            height: 1px; background: rgba(255, 170, 51, 0.15);
+            transform: translateY(-50%);
+        }
+        #zoom-fill {
+            position: absolute; top: 50%; left: 0;
+            height: 1px; background: rgba(255, 170, 51, 0.4);
+            transform: translateY(-50%);
+            width: 50%;
+        }
+        #zoom-thumb {
+            position: absolute; top: 50%;
+            width: 10px; height: 10px; border-radius: 50%;
+            background: rgba(255, 170, 51, 0.7);
+            transform: translateY(-50%);
+            left: calc(50% - 5px);
+        }
+
+        /* Controls bar */
+        #controls-bar {
+            background: rgba(30, 30, 30, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            display: flex; align-items: center;
+            padding: 12px 20px;
+            gap: 0;
+        }
+
+        #controls-row {
+            display: flex; align-items: center; gap: 16px;
+            flex-shrink: 0;
+        }
+
+        .ctrl-btn {
+            background: none; border: none; color: #fff;
+            font-size: 18px; cursor: pointer; padding: 4px;
+            position: relative;
+        }
+        .ctrl-btn.accent { color: #ffaa33; }
+        .ctrl-btn.active { color: #ffaa33; }
+        .ctrl-btn:not(.active):not(.accent) { color: #888; }
+
+        #speed-control, #labels-control, #planet-control {
+            position: relative;
+        }
+
+        #speed-control .ctrl-btn {
+            display: flex; align-items: center; gap: 4px;
+        }
+        #speed-text { font-size: 12px; color: #ffaa33; }
+
+        .spacer { flex: 1; }
+
+        /* Thin separator between controls and planet strip */
+        #planet-strip::before {
+            content: '';
+            width: 1px; height: 24px; flex-shrink: 0;
+            background: rgba(255, 255, 255, 0.1);
+            margin-right: 4px;
+        }
+
+        /* Dropdown menus */
+        .dropdown-menu {
+            position: absolute; bottom: 100%; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(40, 40, 40, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 8px;
+            padding: 4px 0;
+            min-width: 180px;
+            z-index: 30;
+            margin-bottom: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        .dropdown-menu.hidden { display: none; }
+
+        .dropdown-menu .menu-item {
+            display: block; width: 100%; padding: 8px 16px;
+            background: none; border: none; color: #fff;
+            font-size: 13px; text-align: left; cursor: pointer;
+        }
+        .dropdown-menu .menu-item:hover { background: rgba(255,255,255,0.1); }
+        .dropdown-menu .menu-item.checked::before { content: '\2713 '; color: #ffaa33; }
+        .dropdown-menu .divider {
+            height: 1px; background: rgba(255,255,255,0.1);
+            margin: 4px 0;
+        }
+
+        /* Credits button */
+        #btn-credits {
+            margin-left: auto;
+            background: none; border: none;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 12px; cursor: pointer;
+            padding: 2px 0;
+        }
+        #btn-credits:hover { color: rgba(255, 255, 255, 0.7); }
+
+        /* Credits overlay */
+        #credits-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            z-index: 50;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #credits-overlay.hidden { display: none; }
+
+        #credits-panel {
+            background: rgba(30, 30, 30, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 16px;
+            padding: 24px 28px;
+            max-width: 520px; width: 90%;
+            max-height: 80vh; overflow-y: auto;
+            position: relative;
+        }
+        #credits-panel h2 {
+            font-size: 18px; color: #ffaa33;
+            margin-bottom: 16px;
+        }
+        #credits-panel h3 {
+            font-size: 13px; color: #888;
+            text-transform: uppercase; letter-spacing: 0.05em;
+            margin: 16px 0 8px 0;
+        }
+        #credits-panel h3:first-of-type { margin-top: 0; }
+        #credits-panel p, #credits-panel li {
+            font-size: 12px; color: #ccc; line-height: 1.6;
+        }
+        #credits-panel ul {
+            list-style: none; padding: 0; margin: 0;
+        }
+        #credits-panel li {
+            padding: 3px 0;
+        }
+        #credits-panel .source { color: #888; }
+        #credits-panel .licence { color: rgba(255, 170, 51, 0.6); font-size: 11px; }
+        #credits-panel a { color: #4488ff; text-decoration: none; }
+        #credits-panel a:hover { text-decoration: underline; }
+        #credits-dismiss {
+            position: absolute; top: 16px; right: 16px;
+            background: none; border: none; color: #888;
+            font-size: 20px; cursor: pointer;
+        }
+        #credits-panel .built-with {
+            margin-top: 20px; padding-top: 16px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            font-size: 11px; color: #666; text-align: center;
+        }
+
+        /* Ensure UI elements are tappable on mobile Safari */
+        #top-bar, #bottom-bar, #info-panel, #credits-overlay {
+            touch-action: auto;
+        }
+
+        /* Planet picker strip (inline in toolbar on wide screens) */
+        #planet-strip {
+            display: flex; align-items: center;
+            gap: 0;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .planet-thumb-wrapper {
+            flex: 1;
+            display: flex; align-items: center; justify-content: center;
+            position: relative;
+            cursor: pointer;
+            padding: 4px 0;
+        }
+
+        .planet-thumb {
+            width: 32px; height: 32px; border-radius: 50%;
+            flex-shrink: 0;
+            background-size: cover;
+            background-position: center;
+            border: 2px solid transparent;
+            transition: border-color 0.2s, transform 0.15s;
+        }
+        .planet-thumb-wrapper:hover .planet-thumb {
+            border-color: rgba(255, 170, 51, 0.6);
+            transform: scale(1.15);
+        }
+        .planet-thumb-wrapper.selected .planet-thumb {
+            border-color: #ffaa33;
+        }
+        .thumb-label {
+            position: absolute;
+            bottom: -10px; left: 50%;
+            transform: translateX(-50%);
+            font-size: 8px; color: rgba(255,255,255,0.5);
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+        .planet-thumb-wrapper:hover .thumb-label,
+        .planet-thumb-wrapper.selected .thumb-label {
+            opacity: 1;
+        }
+        .planet-thumb-divider {
+            width: 1px; height: 24px; flex-shrink: 0;
+            background: rgba(255, 255, 255, 0.08);
+            margin: 0;
+        }
+
+        /* Saturn ring overlay */
+        .saturn-ring {
+            position: absolute;
+            width: 54px; height: 20px;
+            border: 2px solid rgba(180, 160, 120, 0.5);
+            border-radius: 50%;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) rotateX(65deg);
+            pointer-events: none;
+        }
+
+        #thumb-overview .planet-thumb {
+            background: radial-gradient(circle at 30% 30%, #1a1a3e, #000);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; color: rgba(255,255,255,0.5);
+        }
+
+        /* Narrow screens: planet strip moves to its own row above the controls */
+        @media (max-width: 700px) {
+            #controls-bar {
+                flex-direction: column;
+                padding: 0;
+            }
+
+            /* Planet strip becomes a full-width row on top */
+            #planet-strip {
+                flex: none;
+                width: 100%;
+                order: -1;
+                padding: 10px 16px;
+                justify-content: center;
+            }
+            #planet-strip::before {
+                display: none;
+            }
+
+            /* Controls row sits below */
+            #controls-row {
+                width: 100%;
+                justify-content: center;
+                padding: 6px 16px 10px;
+            }
+
+            .ctrl-btn { font-size: 16px; }
+            #speed-text { font-size: 11px; }
+            .planet-thumb { width: 28px; height: 28px; }
+            .saturn-ring { width: 46px; height: 17px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading screen -->
+    <div id="loading">
+        <div class="spinner"></div>
+        <span>Loading Solar System...</span>
+    </div>
+
+    <!-- 3D canvas -->
+    <div id="canvas-container"></div>
+
+    <!-- Screen-space labels -->
+    <div id="labels"></div>
+
+    <!-- Top bar: date & time scale -->
+    <div id="top-bar">
+        <span class="clock-icon">&#x1F552;</span>
+        <span id="date-display"></span>
+        <span id="speed-badge" class="hidden">1x</span>
+        <button id="btn-credits">Credits</button>
+    </div>
+
+    <!-- Credits overlay -->
+    <div id="credits-overlay" class="hidden">
+        <div id="credits-panel">
+            <button id="credits-dismiss">&times;</button>
+            <h2>Credits &amp; Sources</h2>
+
+            <h3>Planet &amp; Moon Textures</h3>
+            <ul>
+                <li>Earth &mdash; <span class="source">NASA Blue Marble Next Generation</span> <span class="licence">Public domain</span></li>
+                <li>Moon &mdash; <span class="source">NASA Lunar Reconnaissance Orbiter</span> <span class="licence">Public domain</span></li>
+                <li>Mars &mdash; <span class="source">USGS Viking MDIM21 mosaic</span> <span class="licence">Public domain</span></li>
+                <li>Jupiter &mdash; <span class="source">NASA/JPL Cassini PIA07782</span> <span class="licence">Public domain</span></li>
+                <li>Pluto &mdash; <span class="source">NASA/JHUAPL/SwRI New Horizons</span> <span class="licence">Public domain</span></li>
+                <li>Europa &mdash; <span class="source">NASA/JPL Voyager/Galileo mosaic</span> <span class="licence">Public domain</span></li>
+                <li>Mercury, Venus, Uranus, Neptune &mdash; <span class="source"><a href="https://www.solarsystemscope.com/textures/" target="_blank">Solar System Scope</a></span> <span class="licence">CC-BY 4.0</span></li>
+                <li>Saturn &amp; rings &mdash; <span class="source"><a href="http://planetpixelemporium.com/" target="_blank">Planet Pixel Emporium</a></span> <span class="licence">Free non-commercial</span></li>
+                <li>Io, Ganymede &mdash; <span class="source"><a href="http://stevealbers.net/" target="_blank">Steve Albers</a> from NASA/JPL data</span> <span class="licence">Public domain</span></li>
+                <li>Callisto &mdash; <span class="source">Bjorn Jonsson from NASA/JPL data</span> <span class="licence">Public domain</span></li>
+            </ul>
+
+            <h3>Star Data</h3>
+            <ul>
+                <li>8,920 stars from <a href="https://github.com/astronexus/HYG-Database" target="_blank">HYG Database v38</a> <span class="source">by David Nash</span> <span class="licence">CC-BY-SA 2.0</span></li>
+                <li><span class="source">Compiled from ESA Hipparcos, Yale Bright Star Catalogue, and Gliese Catalogue of Nearby Stars</span></li>
+            </ul>
+
+            <h3>Orbital &amp; Rotation Data</h3>
+            <ul>
+                <li>JPL &ldquo;Keplerian Elements for Approximate Positions of the Major Planets&rdquo; <span class="source">(Standish, 1992)</span></li>
+                <li>IAU Working Group on Cartographic Coordinates and Rotational Elements</li>
+            </ul>
+
+            <h3>Technology</h3>
+            <ul>
+                <li>Rendered with <a href="https://threejs.org/" target="_blank">Three.js</a></li>
+            </ul>
+
+            <div class="built-with">Built with Claude Code</div>
+        </div>
+    </div>
+
+    <!-- Info panel (body details) -->
+    <div id="info-panel" class="hidden">
+        <div id="info-color"></div>
+        <div id="info-text">
+            <div id="info-name"></div>
+            <div id="info-details"></div>
+        </div>
+        <button id="info-dismiss">&times;</button>
+    </div>
+
+    <!-- Bottom controls -->
+    <div id="bottom-bar">
+        <!-- Zoom slider -->
+        <div id="zoom-container">
+            <span class="zoom-icon">+</span>
+            <div id="zoom-slider">
+                <div id="zoom-track"></div>
+                <div id="zoom-fill"></div>
+                <div id="zoom-thumb"></div>
+            </div>
+            <span class="zoom-icon">&minus;</span>
+        </div>
+
+        <!-- Controls bar -->
+        <div id="controls-bar">
+            <!-- Playback controls row -->
+            <div id="controls-row">
+                <!-- Play/Pause -->
+                <button id="btn-play-pause" class="ctrl-btn" title="Play/Pause">&#x23F8;</button>
+
+                <!-- Speed -->
+                <div id="speed-control">
+                    <button id="btn-speed" class="ctrl-btn accent" title="Time Scale">
+                        &#x23F1; <span id="speed-text">1x</span>
+                    </button>
+                    <div id="speed-menu" class="dropdown-menu hidden">
+                        <button class="menu-item" data-speed="1">Real-time (1x)</button>
+                        <button class="menu-item" data-speed="100">Fast (100x)</button>
+                        <button class="menu-item" data-speed="1000">1,000x</button>
+                        <button class="menu-item" data-speed="10000">10,000x</button>
+                        <button class="menu-item" data-speed="100000">100,000x</button>
+                        <button class="menu-item" data-speed="1000000">1,000,000x</button>
+                        <div class="divider"></div>
+                        <button class="menu-item" data-speed="0.1">Slow (0.1x)</button>
+                        <button class="menu-item" data-speed="-1">Reverse (-1x)</button>
+                        <button class="menu-item" data-speed="-1000">Reverse (-1,000x)</button>
+                        <button class="menu-item" data-speed="-100000">Reverse (-100,000x)</button>
+                        <div class="divider"></div>
+                        <button class="menu-item" data-speed="now">Reset to Now</button>
+                    </div>
+                </div>
+
+                <!-- Orbits toggle -->
+                <button id="btn-orbits" class="ctrl-btn active" title="Toggle Orbits">&#x25EF;</button>
+
+                <!-- Labels -->
+                <div id="labels-control">
+                    <button id="btn-labels" class="ctrl-btn active" title="Labels">&#x1F3F7;</button>
+                    <div id="labels-menu" class="dropdown-menu hidden">
+                        <button id="toggle-planet-labels" class="menu-item checked">Planets</button>
+                        <button id="toggle-moon-labels" class="menu-item checked">Moons</button>
+                        <button id="toggle-star-labels" class="menu-item checked">Stars</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Planet picker strip -->
+            <div id="planet-strip">
+                <div class="planet-thumb-wrapper" id="thumb-overview" title="Overview">
+                    <div class="planet-thumb" style="background: radial-gradient(circle at 30% 30%, #1a1a3e, #000); display: flex; align-items: center; justify-content: center; font-size: 14px; color: rgba(255,255,255,0.5);">&#x2726;</div>
+                    <span class="thumb-label">Overview</span>
+                </div>
+                <div class="planet-thumb-divider"></div>
+                <div class="planet-thumb-wrapper" data-body="Sun" title="Sun">
+                    <div class="planet-thumb" style="background: radial-gradient(circle at 35% 35%, #fff2b0, #ffaa33, #cc6600);"></div>
+                    <span class="thumb-label">Sun</span>
+                </div>
+                <div class="planet-thumb-wrapper" data-body="Mercury" title="Mercury">
+                    <div class="planet-thumb" style="background-image: url('textures/mercury_2k.jpg');"></div>
+                    <span class="thumb-label">Mercury</span>
+                </div>
+                <div class="planet-thumb-wrapper" data-body="Venus" title="Venus">
+                    <div class="planet-thumb" style="background-image: url('textures/venus_2k.jpg');"></div>
+                    <span class="thumb-label">Venus</span>
+                </div>
+                <div class="planet-thumb-wrapper" data-body="Earth" title="Earth">
+                    <div class="planet-thumb" style="background-image: url('textures/earth_2k.jpg');"></div>
+                    <span class="thumb-label">Earth</span>
+                </div>
+                <div class="planet-thumb-wrapper" data-body="Mars" title="Mars">
+                    <div class="planet-thumb" style="background-image: url('textures/mars_2k.jpg');"></div>
+                    <span class="thumb-label">Mars</span>
+                </div>
+                <div class="planet-thumb-divider"></div>
+                <div class="planet-thumb-wrapper" data-body="Jupiter" title="Jupiter">
+                    <div class="planet-thumb" style="background-image: url('textures/jupiter_2k.jpg');"></div>
+                    <span class="thumb-label">Jupiter</span>
+                </div>
+                <div class="planet-thumb-wrapper" data-body="Saturn" title="Saturn">
+                    <div class="planet-thumb" style="background-image: url('textures/saturn_2k.jpg');"></div>
+                    <div class="saturn-ring"></div>
+                    <span class="thumb-label">Saturn</span>
+                </div>
+                <div class="planet-thumb-wrapper" data-body="Uranus" title="Uranus">
+                    <div class="planet-thumb" style="background-image: url('textures/uranus_2k.jpg');"></div>
+                    <span class="thumb-label">Uranus</span>
+                </div>
+                <div class="planet-thumb-wrapper" data-body="Neptune" title="Neptune">
+                    <div class="planet-thumb" style="background-image: url('textures/neptune_2k.jpg');"></div>
+                    <span class="thumb-label">Neptune</span>
+                </div>
+                <div class="planet-thumb-wrapper" data-body="Pluto" title="Pluto">
+                    <div class="planet-thumb" style="background-image: url('textures/pluto_2k.jpg');"></div>
+                    <span class="thumb-label">Pluto</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Three.js from CDN via import map -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"
+        }
+    }
+    </script>
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>

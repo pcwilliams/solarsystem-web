@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SolarSystem Web - Architecture</title>
+    <style>
+        :root {
+            --bg: #0a0a14;
+            --surface: #12121f;
+            --border: #1e1e3a;
+            --text: #e0e0f0;
+            --accent: #ffaa33;
+            --accent2: #4488ff;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', system-ui, sans-serif;
+            line-height: 1.7;
+            padding: 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(90deg, #ff6600, #ffaa33, #ffdd66, #ffaa33, #ff6600);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #888;
+            font-size: 0.95rem;
+            margin-bottom: 2rem;
+        }
+
+        .diagram-section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .diagram-section h2 {
+            color: var(--accent);
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+
+        .mermaid { display: flex; justify-content: center; }
+
+        .deep-dive {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .deep-dive h2 { color: var(--accent); margin-bottom: 1rem; font-size: 1.2rem; }
+
+        .deep-dive h3 {
+            color: #88bbff;
+            margin: 1.5rem 0 0.5rem 0;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.3rem;
+        }
+
+        .deep-dive p { margin: 0.5rem 0; }
+
+        .deep-dive .math {
+            background: #0d0d1a;
+            border: 1px solid #1e1e3a;
+            border-radius: 8px;
+            padding: 1.25rem 1.5rem;
+            margin: 0.75rem 0;
+            font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+            font-size: 0.88rem;
+            color: #c0c0e0;
+            overflow-x: auto;
+            line-height: 2;
+        }
+
+        .math .var { color: #66ccff; font-weight: 600; }
+        .math .fn { color: #cc88ff; }
+        .math .num { color: #88ddaa; }
+        .math .op { color: #ff8866; }
+        .math .comment { color: #666688; font-style: italic; }
+        .math .heading {
+            color: #88bbff; font-weight: 600; display: block;
+            margin-top: 0.6rem; margin-bottom: 0.2rem;
+            font-size: 0.85rem; letter-spacing: 0.03em; text-transform: uppercase;
+        }
+
+        .pipeline { display: flex; flex-direction: column; gap: 1rem; margin: 1rem 0; }
+        .stage { display: flex; align-items: flex-start; gap: 1rem; }
+        .stage-num {
+            background: linear-gradient(135deg, #ff6600, #ffaa33);
+            color: white; min-width: 28px; height: 28px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; font-size: 0.8rem; flex-shrink: 0;
+        }
+        .stage-content { flex: 1; }
+        .stage-content strong { color: var(--accent); }
+
+        .info-box {
+            background: linear-gradient(135deg, #0d1a2a, #0d0d1a);
+            border: 1px solid #1a3a5a; border-radius: 8px;
+            padding: 1rem 1.25rem; margin: 0.75rem 0;
+        }
+        .info-box .label { color: var(--accent2); font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem; }
+
+        code {
+            background: #1a1a2e; padding: 0.15rem 0.4rem; border-radius: 4px;
+            font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+            font-size: 0.88rem; color: #aaddff;
+        }
+
+        ul { margin: 0.5rem 0 0.5rem 1.5rem; }
+        li { margin: 0.3rem 0; }
+
+        table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; }
+        th, td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
+        th { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.03em; }
+        td { font-size: 0.9rem; }
+        td code { font-size: 0.82rem; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            themeVariables: {
+                primaryColor: '#1a1a3e',
+                primaryTextColor: '#e0e0f0',
+                primaryBorderColor: '#ffaa33',
+                lineColor: '#ffaa33',
+                secondaryColor: '#0d0d1a',
+                tertiaryColor: '#12121f'
+            }
+        });
+    </script>
+</head>
+<body>
+    <h1>SolarSystem Web</h1>
+    <p class="subtitle">Architecture &mdash; Three.js, real orbital mechanics, and zero dependencies</p>
+
+    <!-- System Architecture -->
+    <div class="diagram-section">
+        <h2>System Architecture</h2>
+        <div class="mermaid">
+            graph TD
+                A["Current Date/Time"] --> B["Julian Date Converter"]
+                B --> C["Orbital Mechanics Engine<br/>(CPU, Keplerian)"]
+                C --> D["Planet Positions<br/>(Heliocentric Ecliptic)"]
+                D --> E["Log Distance +<br/>Sqrt Radius Scaler"]
+                B --> R["IAU Rotation<br/>(Quaternion Tilt + Spin)"]
+                E --> F["Three.js Scene Graph<br/>(GPU, WebGL, PBR)"]
+                R --> F
+                F --> G["WebGLRenderer<br/>(Canvas Element)"]
+                G --> H["HTML/CSS Overlay<br/>(Labels, HUD, Zoom)"]
+                H --> I["CameraController<br/>(Mouse + Touch)"]
+                I --> G
+
+                J["JPL J2000.0<br/>Elements"] --> C
+                K["NASA/Cassini<br/>Textures (JPEG)"] --> F
+                L["Time Controls<br/>(Speed/Pause/Reset)"] --> A
+                M["HYG Star<br/>Catalogue (CSV)"] --> F
+
+                style A fill:#1a1a3e,stroke:#ffaa33
+                style C fill:#1a2a1a,stroke:#44aa44
+                style R fill:#1a2a1a,stroke:#44aa44
+                style F fill:#1a1a3e,stroke:#4488ff
+                style H fill:#2a1a2a,stroke:#aa44ff
+                style I fill:#1a2a2a,stroke:#44aaaa
+                style M fill:#1a1a3e,stroke:#88bbff
+        </div>
+    </div>
+
+    <!-- Module Architecture -->
+    <div class="diagram-section">
+        <h2>Module Architecture</h2>
+        <div class="mermaid">
+            graph TD
+                HTML["index.html<br/>(UI + CSS)"] --> MAIN["main.js<br/>(Entry Point)"]
+                MAIN --> SB["sceneBuilder.js<br/>(Scene Graph)"]
+                MAIN --> CC["cameraController.js<br/>(Input Handling)"]
+                MAIN --> OM["orbitalMechanics.js<br/>(Kepler Solver)"]
+                MAIN --> SD["solarSystemData.js<br/>(Body Catalogue)"]
+                SB --> TG["textureGenerator.js<br/>(Procedural Sun/Glow)"]
+                SB --> OM
+                SB --> SD
+                SB --> THREE["Three.js r170<br/>(CDN)"]
+                CC --> THREE
+                TG --> THREE
+
+                style HTML fill:#2a1a2a,stroke:#aa44ff
+                style MAIN fill:#1a1a3e,stroke:#ffaa33
+                style THREE fill:#1a2a1a,stroke:#44aa44
+                style SB fill:#1a1a3e,stroke:#4488ff
+                style CC fill:#1a2a2a,stroke:#44aaaa
+        </div>
+    </div>
+
+    <!-- Camera Controller -->
+    <div class="diagram-section">
+        <h2>Camera Controller</h2>
+        <div class="mermaid">
+            graph TD
+                A["Input Events"] --> B["Left-Drag / 1-Finger"]
+                A --> C["Right-Drag / 2-Finger"]
+                A --> D["Scroll / Pinch"]
+                A --> E["Click / Tap"]
+                A --> F["Double-Click / Double-Tap"]
+
+                B --> G["Translate Target<br/>(Camera-local plane)"]
+                C --> H["Orbit Angles<br/>(Azimuth + Elevation)"]
+                D --> I["Camera Distance<br/>(0.5 &ndash; 250)"]
+                E --> J["Raycaster Hit Test"]
+                F --> K["Reset to Overview"]
+
+                G --> L["updateCamera()<br/>(Spherical &rarr; Cartesian)"]
+                H --> L
+                I --> L
+                J --> M["selectBody()<br/>&rarr; focusCamera()"]
+                K --> L
+                M --> L
+
+                L --> N["Camera Position<br/>+ lookAt Target"]
+
+                style L fill:#1a2a2a,stroke:#44aaaa
+                style N fill:#1a1a3e,stroke:#ffaa33
+        </div>
+    </div>
+
+    <!-- Rendering Pipeline -->
+    <div class="diagram-section">
+        <h2>Scene Graph</h2>
+        <div class="mermaid">
+            graph TD
+                S["THREE.Scene"] --> PL["PointLight<br/>(Sun, warm white)"]
+                S --> AL["AmbientLight<br/>(dim fill)"]
+                S --> SF["Starfield Points<br/>(4 brightness tiers)"]
+                S --> SUN["Sun Mesh<br/>(MeshBasicMaterial)"]
+                SUN --> G1["Sprite: Inner Glow"]
+                SUN --> G2["Sprite: Mid Glow"]
+                SUN --> G3["Sprite: Outer Glow"]
+                SUN --> G4["Sprite: Corona"]
+                S --> P1["Planet Meshes<br/>(MeshStandardMaterial)"]
+                P1 --> SAT["Saturn Rings<br/>(BufferGeometry Disc)"]
+                S --> ORB["Orbit Lines<br/>(LineLoop)"]
+                S --> MOO["Moon Meshes<br/>(MeshStandardMaterial)"]
+
+                style S fill:#1a1a3e,stroke:#ffaa33
+                style SUN fill:#2a2a0a,stroke:#ffaa33
+                style P1 fill:#1a1a3e,stroke:#4488ff
+                style SF fill:#0d0d1a,stroke:#88bbff
+        </div>
+    </div>
+
+    <!-- iOS to Web Mapping -->
+    <div class="deep-dive">
+        <h2>iOS to Web: Technology Mapping</h2>
+        <p>This app is a faithful port of the <a href="../solarsystem/" style="color: var(--accent);">iOS SolarSystem app</a>. Every algorithm, constant, and visual detail maps directly.</p>
+
+        <table>
+            <tr><th>iOS (SceneKit)</th><th>Web (Three.js)</th><th>Notes</th></tr>
+            <tr><td><code>SCNScene</code></td><td><code>THREE.Scene</code></td><td>Black background, same graph structure</td></tr>
+            <tr><td><code>SCNSphere</code></td><td><code>SphereGeometry</code></td><td>Same segment count (36/48)</td></tr>
+            <tr><td>PBR <code>SCNMaterial</code></td><td><code>MeshStandardMaterial</code></td><td>Same roughness/metalness values</td></tr>
+            <tr><td><code>.constant</code> lighting</td><td><code>MeshBasicMaterial</code></td><td>Sun, orbit lines</td></tr>
+            <tr><td><code>.add</code> blend mode</td><td><code>AdditiveBlending</code></td><td>Sun corona glow</td></tr>
+            <tr><td><code>SCNView.projectPoint()</code></td><td><code>Vector3.project()</code></td><td>Label screen projection</td></tr>
+            <tr><td><code>SCNView</code> hit test</td><td><code>Raycaster</code></td><td>Body selection on click/tap</td></tr>
+            <tr><td><code>CADisplayLink</code></td><td><code>requestAnimationFrame</code></td><td>60fps render loop</td></tr>
+            <tr><td><code>UIGraphicsImageRenderer</code></td><td><code>Canvas2D</code></td><td>Procedural textures</td></tr>
+            <tr><td><code>UIPanGestureRecognizer</code></td><td><code>mouse/touch events</code></td><td>Custom gesture handling</td></tr>
+            <tr><td><code>simd_quatf</code></td><td><code>THREE.Quaternion</code></td><td>IAU rotation model</td></tr>
+            <tr><td><code>UserDefaults</code></td><td>&mdash;</td><td>Future: <code>localStorage</code></td></tr>
+        </table>
+    </div>
+
+    <!-- Orbital Mechanics Deep Dive -->
+    <div class="deep-dive">
+        <h2>Orbital Mechanics Pipeline</h2>
+
+        <div class="pipeline">
+            <div class="stage">
+                <div class="stage-num">1</div>
+                <div class="stage-content"><strong>Julian Date</strong> &mdash; Convert JavaScript <code>Date</code> to Julian Date Number via the Meeus algorithm. Essential for astronomical time: a continuous day count since 4713 BC, eliminating calendar irregularities.</div>
+            </div>
+            <div class="stage">
+                <div class="stage-num">2</div>
+                <div class="stage-content"><strong>Julian Centuries</strong> &mdash; <code>T = (JD - 2451545.0) / 36525.0</code>. Time since J2000.0 epoch in centuries. All JPL element rates are per-century.</div>
+            </div>
+            <div class="stage">
+                <div class="stage-num">3</div>
+                <div class="stage-content"><strong>Osculating Elements</strong> &mdash; <code>a = a0 + aRate &times; T</code> for all six Keplerian elements. Linear approximation valid for several centuries around J2000.</div>
+            </div>
+            <div class="stage">
+                <div class="stage-num">4</div>
+                <div class="stage-content"><strong>Mean Anomaly</strong> &mdash; <code>M = L - wBar</code>, normalised to [0, 2&pi;). The angle that increases uniformly with time.</div>
+            </div>
+            <div class="stage">
+                <div class="stage-num">5</div>
+                <div class="stage-content"><strong>Kepler Solver</strong> &mdash; Newton-Raphson iteration: <code>E &larr; E - (E - e&middot;sin(E) - M) / (1 - e&middot;cos(E))</code>. Converges in 3&ndash;5 iterations for all planetary eccentricities.</div>
+            </div>
+            <div class="stage">
+                <div class="stage-num">6</div>
+                <div class="stage-content"><strong>True Anomaly</strong> &mdash; Half-angle formula: <code>&nu; = 2&middot;atan2(&radic;(1+e)&middot;sin(E/2), &radic;(1-e)&middot;cos(E/2))</code>. The actual angle of the planet from perihelion.</div>
+            </div>
+            <div class="stage">
+                <div class="stage-num">7</div>
+                <div class="stage-content"><strong>Heliocentric Position</strong> &mdash; Distance <code>r = a(1 - e&middot;cos(E))</code>, then rotate by &omega;, I, w from the orbital plane to ecliptic (x, y, z) coordinates in AU.</div>
+            </div>
+            <div class="stage">
+                <div class="stage-num">8</div>
+                <div class="stage-content"><strong>Scene Position</strong> &mdash; Logarithmic distance compression <code>log(1 + AU/0.5) &times; 15</code>, then coordinate swap: Three.js x = ecliptic x, y = ecliptic z, z = -ecliptic y.</div>
+            </div>
+        </div>
+
+        <div class="math">
+            <span class="heading">Distance Scaling</span>
+            <span class="var">sceneUnits</span> <span class="op">=</span> <span class="fn">log</span>(<span class="num">1</span> <span class="op">+</span> <span class="var">AU</span> <span class="op">/</span> <span class="num">0.5</span>) <span class="op">&times;</span> <span class="num">15</span>
+            <br/>
+            <span class="comment">Mercury &asymp; 7.5 | Earth &asymp; 16.5 | Jupiter &asymp; 36.5 | Neptune &asymp; 63</span>
+
+            <span class="heading">Radius Scaling</span>
+            <span class="var">sceneRadius</span> <span class="op">=</span> <span class="fn">sqrt</span>(<span class="var">km</span>) <span class="op">&times;</span> <span class="num">0.00125</span>
+            <br/>
+            <span class="comment">Jupiter &asymp; 0.33 | Earth &asymp; 0.10 | Mercury &asymp; 0.06</span>
+
+            <span class="heading">Moon Distance Compression</span>
+            <span class="var">moonSceneDist</span> <span class="op">=</span> <span class="var">parentRadius</span> <span class="op">&times;</span> <span class="fn">pow</span>(<span class="var">realRatio</span>, <span class="num">0.4</span>) <span class="op">&times;</span> <span class="num">1.5</span>
+            <br/>
+            <span class="comment">Moon &asymp; 8.8&times; Earth | Io &asymp; 3.1&times; Jupiter | Callisto &asymp; 5.7&times; Jupiter</span>
+        </div>
+    </div>
+
+    <!-- Rotation Model -->
+    <div class="deep-dive">
+        <h2>IAU Rotation Model</h2>
+
+        <p>Every body has a sidereal rotation period, axial obliquity, and prime meridian at J2000.0. Rotation is applied using <strong>quaternion composition</strong> to avoid Euler angle wobble:</p>
+
+        <div class="math">
+            <span class="var">tiltQuat</span> <span class="op">=</span> <span class="fn">Quaternion.setFromAxisAngle</span>(<span class="var">X</span>, <span class="var">obliquity</span>)
+            <br/>
+            <span class="var">spinQuat</span> <span class="op">=</span> <span class="fn">Quaternion.setFromAxisAngle</span>(<span class="var">Y</span>, <span class="var">spinAngle</span>)
+            <br/>
+            <span class="var">mesh.quaternion</span> <span class="op">=</span> <span class="var">tiltQuat</span> <span class="op">&times;</span> <span class="var">spinQuat</span>
+            <br/><br/>
+            <span class="comment">Tilt is fixed in world space. Spin happens around the tilted pole.</span>
+            <br/>
+            <span class="comment">Euler angles (tilt, spin, 0) cause wobble because Three.js applies Y-X-Z order,</span>
+            <br/>
+            <span class="comment">making the tilt axis rotate with each spin cycle.</span>
+        </div>
+
+        <h3>Saturn's Rings</h3>
+        <p>Rings are child nodes of Saturn, so they inherit the planet's rotation. To keep them fixed in the equatorial plane while the cloud bands rotate beneath, the ring node applies an inverse spin quaternion each frame:</p>
+        <div class="math">
+            <span class="var">ringNode.quaternion</span> <span class="op">=</span> <span class="fn">Quaternion.setFromAxisAngle</span>(<span class="var">Y</span>, <span class="op">-</span><span class="var">spinAngle</span>)
+        </div>
+
+        <h3>Retrograde Rotators</h3>
+        <p>Venus (177.4&deg; tilt, -5832.5h period), Uranus (97.8&deg; tilt, -17.24h period), and Pluto (122.5&deg; tilt, -153.3h period) all rotate backwards. The negative period flips the spin direction; the extreme obliquity tilts the axis past vertical.</p>
+    </div>
+
+    <!-- Star Rendering -->
+    <div class="deep-dive">
+        <h2>Star Rendering</h2>
+
+        <p>8,920 stars from the HYG v38 catalogue (Hipparcos/Yale/Gliese amalgamation), filtered to naked-eye visibility (magnitude &le; 6.5).</p>
+
+        <h3>Position Mapping</h3>
+        <p>Each star's Right Ascension (hours) and Declination (degrees) are converted to a point on a celestial sphere of radius 500 scene units. The coordinate transform: <code>x = R&middot;cos(dec)&middot;cos(ra)</code>, <code>y = R&middot;sin(dec)</code>, <code>z = -R&middot;cos(dec)&middot;sin(ra)</code>.</p>
+
+        <h3>Brightness Tiers</h3>
+        <table>
+            <tr><th>Tier</th><th>Magnitude</th><th>Count</th><th>Point Size</th></tr>
+            <tr><td>0 (brightest)</td><td>&lt; 1.5</td><td>~20</td><td>4.0 px</td></tr>
+            <tr><td>1</td><td>1.5 &ndash; 3.5</td><td>~200</td><td>2.5 px</td></tr>
+            <tr><td>2</td><td>3.5 &ndash; 5.0</td><td>~1500</td><td>1.5 px</td></tr>
+            <tr><td>3 (faintest)</td><td>5.0 &ndash; 6.5</td><td>~7000</td><td>0.8 px</td></tr>
+        </table>
+
+        <h3>B-V Colour Index</h3>
+        <p>Per-vertex colour computed from B-V index using a piecewise linear approximation of the Planckian locus. B-V ranges from -0.4 (hot blue-white O/B stars) through 0.0 (white A stars) to 2.0+ (cool red M stars). Rendered via <code>PointsMaterial</code> with <code>vertexColors: true</code> and <code>sizeAttenuation: false</code>.</p>
+    </div>
+
+    <!-- UI Layout -->
+    <div class="deep-dive">
+        <h2>UI Layout</h2>
+
+        <p>The application uses HTML/CSS overlays on top of the full-screen WebGL canvas. All UI panels use glass-morphism (<code>backdrop-filter: blur(20px)</code>) for depth.</p>
+
+        <!-- UI layout SVG diagram -->
+        <div style="display: flex; justify-content: center; margin: 1.5rem 0;">
+        <svg viewBox="0 0 480 320" width="460" xmlns="http://www.w3.org/2000/svg" style="font-family: -apple-system, system-ui, sans-serif;">
+            <rect width="480" height="320" fill="#0a0a14" rx="12" stroke="#1e1e3a" stroke-width="1"/>
+
+            <!-- Canvas area -->
+            <rect x="10" y="10" width="460" height="300" fill="#000" rx="8" opacity="0.5"/>
+            <text x="240" y="165" fill="#333" font-size="12" text-anchor="middle">WebGL Canvas (Three.js)</text>
+
+            <!-- Top bar -->
+            <rect x="10" y="10" width="460" height="30" fill="rgba(30,30,30,0.8)" rx="8"/>
+            <circle cx="26" cy="25" r="5" fill="#ffaa33" opacity="0.6"/>
+            <text x="38" y="29" fill="#ccc" font-size="9">5 Apr 2026, 10:47</text>
+            <rect x="145" y="19" width="28" height="13" rx="3" fill="rgba(255,170,51,0.2)"/>
+            <text x="159" y="28.5" fill="#ffaa33" font-size="8" text-anchor="middle">100x</text>
+            <text x="440" y="29" fill="rgba(255,255,255,0.4)" font-size="9" text-anchor="end">Credits</text>
+
+            <!-- Info panel (shown) -->
+            <rect x="20" y="46" width="440" height="40" fill="rgba(30,30,30,0.7)" rx="8"/>
+            <circle cx="42" cy="66" r="12" fill="#3388ee"/>
+            <text x="62" y="62" fill="#fff" font-size="10" font-weight="600">Earth</text>
+            <text x="62" y="74" fill="#888" font-size="8">Planet · r: 6k km · 1.00 AU</text>
+            <text x="448" y="70" fill="#666" font-size="14" text-anchor="end">&times;</text>
+
+            <!-- Zoom slider -->
+            <rect x="20" y="254" width="440" height="16" fill="transparent"/>
+            <text x="24" y="265" fill="rgba(255,170,51,0.4)" font-size="9" font-weight="600">+</text>
+            <line x1="38" y1="262" x2="448" y2="262" stroke="rgba(255,170,51,0.15)" stroke-width="1"/>
+            <line x1="38" y1="262" x2="243" y2="262" stroke="rgba(255,170,51,0.4)" stroke-width="1"/>
+            <circle cx="243" cy="262" r="4" fill="rgba(255,170,51,0.7)"/>
+            <text x="456" y="265" fill="rgba(255,170,51,0.4)" font-size="9" font-weight="600">&minus;</text>
+
+            <!-- Controls bar -->
+            <rect x="10" y="274" width="460" height="36" fill="rgba(30,30,30,0.8)" rx="8"/>
+
+            <!-- Playback controls -->
+            <text x="24" y="296" fill="#fff" font-size="12">&#x23F8;</text>
+            <text x="44" y="296" fill="#ffaa33" font-size="10">&#x23F1; 1x</text>
+            <text x="84" y="296" fill="#ffaa33" font-size="12">&#x25EF;</text>
+            <text x="104" y="296" fill="#ffaa33" font-size="10">&#x1F3F7;</text>
+
+            <!-- Separator -->
+            <line x1="124" y1="281" x2="124" y2="303" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+
+            <!-- Planet thumbnails -->
+            <circle cx="143" cy="292" r="8" fill="#1a1a3e" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+            <text x="143" y="295" fill="rgba(255,255,255,0.4)" font-size="7" text-anchor="middle">&#x2726;</text>
+
+            <line x1="157" y1="283" x2="157" y2="301" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+
+            <circle cx="173" cy="292" r="8" fill="#ffcc44"/>
+            <circle cx="197" cy="292" r="8" fill="#998877"/>
+            <circle cx="221" cy="292" r="8" fill="#ddcc99"/>
+            <circle cx="245" cy="292" r="8" fill="#3366cc" stroke="#ffaa33" stroke-width="1.5"/>
+            <circle cx="269" cy="292" r="8" fill="#cc5533"/>
+
+            <line x1="283" y1="283" x2="283" y2="301" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+
+            <circle cx="299" cy="292" r="8" fill="#ccaa77"/>
+            <circle cx="323" cy="292" r="8" fill="#ccaa66"/>
+            <ellipse cx="323" cy="292" rx="14" ry="5" fill="none" stroke="rgba(180,160,120,0.5)" stroke-width="1.5"/>
+            <circle cx="347" cy="292" r="8" fill="#88ccdd"/>
+            <circle cx="371" cy="292" r="8" fill="#4466cc"/>
+            <circle cx="395" cy="292" r="8" fill="#bbaa88"/>
+
+            <!-- Labels -->
+            <text x="240" y="230" fill="#555" font-size="8" text-anchor="middle">&#x2191; Labels overlay (DOM positioned via Vector3.project) &#x2191;</text>
+        </svg>
+        </div>
+
+        <h3>Planet Strip</h3>
+        <p>The toolbar's right section contains textured circular thumbnails for each body. Each thumbnail uses the actual NASA JPEG as a CSS <code>background-image</code>, clipped to a circle. Saturn includes a decorative ring overlay using a CSS <code>border-radius: 50%</code> ellipse with <code>rotateX(65deg)</code> 3D transform. The selected body gets an orange border highlight.</p>
+
+        <h3>Adaptive Layout</h3>
+        <p>On wide screens (&gt;700px), the planet strip sits inline in the toolbar alongside playback controls. On narrow screens (phones in portrait), a CSS <code>flex-direction: column</code> media query breaks it into its own row above the controls:</p>
+
+        <!-- Adaptive layout SVG -->
+        <div style="display: flex; justify-content: center; margin: 1.5rem 0;">
+        <svg viewBox="0 0 460 160" width="440" xmlns="http://www.w3.org/2000/svg" style="font-family: -apple-system, system-ui, sans-serif;">
+            <rect width="460" height="160" fill="#0d0d1a" rx="8"/>
+
+            <!-- Wide layout -->
+            <text x="170" y="18" fill="#88bbff" font-size="10" font-weight="600" text-anchor="middle">&gt; 700px (Desktop)</text>
+            <rect x="15" y="26" width="310" height="32" fill="#1e1e1e" rx="6"/>
+            <text x="25" y="46" fill="#fff" font-size="9">&#x23F8; &#x23F1; &#x25EF; &#x1F3F7;</text>
+            <line x1="88" y1="32" x2="88" y2="52" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+            <circle cx="104" cy="42" r="6" fill="#ffcc44"/>
+            <circle cx="122" cy="42" r="6" fill="#998877"/>
+            <circle cx="140" cy="42" r="6" fill="#ddcc99"/>
+            <circle cx="158" cy="42" r="6" fill="#3366cc"/>
+            <circle cx="176" cy="42" r="6" fill="#cc5533"/>
+            <line x1="190" y1="34" x2="190" y2="50" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+            <circle cx="204" cy="42" r="6" fill="#ccaa77"/>
+            <circle cx="222" cy="42" r="6" fill="#ccaa66"/>
+            <ellipse cx="222" cy="42" rx="10" ry="4" fill="none" stroke="rgba(180,160,120,0.4)" stroke-width="1"/>
+            <circle cx="240" cy="42" r="6" fill="#88ccdd"/>
+            <circle cx="258" cy="42" r="6" fill="#4466cc"/>
+            <circle cx="276" cy="42" r="6" fill="#bbaa88"/>
+            <text x="170" y="72" fill="#666" font-size="8" text-anchor="middle">Single row &mdash; controls + planets inline</text>
+
+            <!-- Narrow layout -->
+            <text x="170" y="92" fill="#ffaa33" font-size="10" font-weight="600" text-anchor="middle">&le; 700px (Phone Portrait)</text>
+            <rect x="55" y="100" width="230" height="52" fill="#1e1e1e" rx="6"/>
+            <!-- Planet row -->
+            <circle cx="78" cy="113" r="5" fill="#ffcc44"/>
+            <circle cx="94" cy="113" r="5" fill="#998877"/>
+            <circle cx="110" cy="113" r="5" fill="#ddcc99"/>
+            <circle cx="126" cy="113" r="5" fill="#3366cc"/>
+            <circle cx="142" cy="113" r="5" fill="#cc5533"/>
+            <line x1="155" y1="107" x2="155" y2="119" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+            <circle cx="168" cy="113" r="5" fill="#ccaa77"/>
+            <circle cx="184" cy="113" r="5" fill="#ccaa66"/>
+            <ellipse cx="184" cy="113" rx="8" ry="3" fill="none" stroke="rgba(180,160,120,0.4)" stroke-width="1"/>
+            <circle cx="200" cy="113" r="5" fill="#88ccdd"/>
+            <circle cx="216" cy="113" r="5" fill="#4466cc"/>
+            <circle cx="232" cy="113" r="5" fill="#bbaa88"/>
+            <!-- Divider -->
+            <line x1="65" y1="123" x2="275" y2="123" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+            <!-- Controls row -->
+            <text x="130" y="142" fill="#fff" font-size="9">&#x23F8; &#x23F1; 1x &nbsp;&#x25EF; &#x1F3F7;</text>
+            <text x="170" y="156" fill="#666" font-size="8" text-anchor="middle">Two rows &mdash; planets on top, controls below</text>
+        </svg>
+        </div>
+
+        <h3>Focus Zoom Strategy</h3>
+        <p>When selecting a body, the camera distance is calculated to frame the body and its moon system. Planets with moons use a 2.2&times; base multiplier on the system extent. Moonless planets use 6.0&times; so they appear at a similar visual scale. On portrait viewports, the multiplier is scaled down by aspect ratio (<code>0.5 + 0.5 &times; min(aspect, 1.0)</code>) so planets fill the narrower width appropriately.</p>
+
+        <div class="math">
+            <span class="var">portraitFactor</span> <span class="op">=</span> <span class="fn">min</span>(<span class="var">width</span> <span class="op">/</span> <span class="var">height</span>, <span class="num">1.0</span>)<br/>
+            <span class="var">multiplier</span> <span class="op">=</span> <span class="var">baseMultiplier</span> <span class="op">&times;</span> (<span class="num">0.5</span> <span class="op">+</span> <span class="num">0.5</span> <span class="op">&times;</span> <span class="var">portraitFactor</span>)<br/>
+            <br/>
+            <span class="comment">Landscape (16:9): factor = 1.0 &rarr; full multiplier</span><br/>
+            <span class="comment">Portrait phone (9:16): factor = 0.56 &rarr; 78% multiplier</span>
+        </div>
+    </div>
+
+    <!-- iOS Safari Compatibility -->
+    <div class="deep-dive">
+        <h2>iOS Safari Compatibility</h2>
+
+        <p>Three issues required specific fixes for iOS Safari, all related to how the browser handles touch events on overlaid elements:</p>
+
+        <div class="pipeline">
+            <div class="stage">
+                <div class="stage-num">1</div>
+                <div class="stage-content"><strong>touch-action: none</strong> &mdash; When applied to a full-screen container, iOS Safari's gesture system captures all touches before they reach overlaid UI elements, even those with higher z-index. Fix: apply <code>touch-action: none</code> only to the <code>&lt;canvas&gt;</code> element, not the container.</div>
+            </div>
+            <div class="stage">
+                <div class="stage-num">2</div>
+                <div class="stage-content"><strong>-webkit-user-select: none</strong> &mdash; When set on <code>&lt;body&gt;</code>, suppresses click event synthesis from touch events. Fix: scope to the canvas container only, leaving UI elements with default <code>user-select</code>.</div>
+            </div>
+            <div class="stage">
+                <div class="stage-num">3</div>
+                <div class="stage-content"><strong>Click event synthesis</strong> &mdash; Even after fixing the above, iOS Safari may still not fire <code>click</code> events reliably. Fix: the <code>onTap()</code> helper binds both <code>touchend</code> (with <code>preventDefault()</code>) and <code>click</code>, using a flag to prevent double-firing on devices where both work.</div>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <div class="label">The onTap() pattern</div>
+            <p>All interactive elements use <code>onTap(element, handler)</code> instead of <code>addEventListener('click', handler)</code>. The touchend fires immediately (no 300ms delay), and the click serves as a mouse fallback. A <code>touchFired</code> flag prevents the click from re-firing after a touch.</p>
+        </div>
+    </div>
+
+    <!-- Saturn Ring Geometry -->
+    <div class="deep-dive">
+        <h2>Saturn Ring Geometry</h2>
+
+        <p>Saturn's rings use a custom <code>BufferGeometry</code> disc with radial UV mapping, identical to the iOS app's approach. The key insight is that the UV <code>u</code> coordinate must run radially (inner to outer), not linearly across the disc face.</p>
+
+        <div style="display: flex; justify-content: center; margin: 1.5rem 0;">
+        <svg viewBox="0 0 460 220" width="440" xmlns="http://www.w3.org/2000/svg" style="font-family: -apple-system, system-ui, sans-serif;">
+            <rect width="460" height="220" fill="#0d0d1a" rx="8"/>
+
+            <!-- LEFT: Wrong (linear UVs) -->
+            <text x="110" y="20" fill="#ff6666" font-size="11" font-weight="600" text-anchor="middle">Linear UVs (wrong)</text>
+
+            <ellipse cx="110" cy="110" rx="85" ry="50" fill="none" stroke="#664422" stroke-width="12" opacity="0.6"/>
+            <line x1="30" y1="85" x2="190" y2="85" stroke="#aa8855" stroke-width="1" opacity="0.7"/>
+            <line x1="28" y1="100" x2="192" y2="100" stroke="#886633" stroke-width="1.5" opacity="0.7"/>
+            <line x1="28" y1="115" x2="192" y2="115" stroke="#aa8855" stroke-width="1" opacity="0.7"/>
+            <line x1="30" y1="130" x2="190" y2="130" stroke="#886633" stroke-width="1.5" opacity="0.7"/>
+            <circle cx="110" cy="110" r="22" fill="#ccaa66"/>
+            <line x1="155" y1="165" x2="170" y2="180" stroke="#ff4444" stroke-width="2.5"/>
+            <line x1="170" y1="165" x2="155" y2="180" stroke="#ff4444" stroke-width="2.5"/>
+            <text x="110" y="200" fill="#ff6666" font-size="10" text-anchor="middle">Bands are straight lines</text>
+
+            <text x="230" y="115" fill="#888" font-size="20">&rarr;</text>
+
+            <!-- RIGHT: Correct (radial UVs) -->
+            <text x="350" y="20" fill="#44cc88" font-size="11" font-weight="600" text-anchor="middle">Radial UVs (correct)</text>
+
+            <ellipse cx="350" cy="110" rx="85" ry="50" fill="none" stroke="#664422" stroke-width="12" opacity="0.6"/>
+            <ellipse cx="350" cy="110" rx="60" ry="35" fill="none" stroke="#aa8855" stroke-width="1" opacity="0.8"/>
+            <ellipse cx="350" cy="110" rx="68" ry="40" fill="none" stroke="#886633" stroke-width="1.5" opacity="0.8"/>
+            <ellipse cx="350" cy="110" rx="76" ry="45" fill="none" stroke="#aa8855" stroke-width="1" opacity="0.8"/>
+            <ellipse cx="350" cy="110" rx="83" ry="49" fill="none" stroke="#886633" stroke-width="1.5" opacity="0.8"/>
+            <circle cx="350" cy="110" r="22" fill="#ccaa66"/>
+            <polyline points="342,170 350,180 365,162" fill="none" stroke="#44cc88" stroke-width="2.5"/>
+            <text x="350" y="200" fill="#44cc88" font-size="10" text-anchor="middle">Bands curve concentrically</text>
+
+            <text x="350" y="215" fill="#556677" font-size="9" text-anchor="middle">u: inner&rarr;outer | v: around circumference</text>
+        </svg>
+        </div>
+
+        <p>The geometry is built with 72 radial segments &times; 4 ring segments (288 triangles). Two Cassini textures are applied: a colour map (<code>saturn_ring_color.jpg</code>) for the band colours and an alpha map (<code>saturn_ring_alpha.gif</code>) for the transparency structure including the Cassini Division gap. The ring is a child of the Saturn mesh but counter-rotates each frame to cancel the parent's spin, keeping the rings fixed in the equatorial plane.</p>
+    </div>
+
+    <!-- Sun Corona -->
+    <div class="deep-dive">
+        <h2>Sun Corona Rendering</h2>
+
+        <p>Four billboard sprites with additive blending create the multi-layer corona glow. Each sprite uses a procedural radial gradient <code>CanvasTexture</code>.</p>
+
+        <div style="display: flex; justify-content: center; margin: 1.5rem 0;">
+        <svg viewBox="0 0 460 200" width="440" xmlns="http://www.w3.org/2000/svg" style="font-family: -apple-system, system-ui, sans-serif;">
+            <rect width="460" height="200" fill="#0d0d1a" rx="8"/>
+
+            <!-- Layer 4: Extended corona -->
+            <circle cx="230" cy="100" r="80" fill="none" stroke="rgba(255,153,38,0.06)" stroke-width="20"/>
+            <text x="340" y="35" fill="#556" font-size="9">Layer 4: 4.0&times; radius</text>
+            <text x="340" y="47" fill="#444" font-size="8">a: 0.03, extended corona</text>
+
+            <!-- Layer 3: Outer glow -->
+            <circle cx="230" cy="100" r="56" fill="none" stroke="rgba(255,179,51,0.12)" stroke-width="14"/>
+            <text x="340" y="67" fill="#556" font-size="9">Layer 3: 2.8&times; radius</text>
+            <text x="340" y="79" fill="#444" font-size="8">a: 0.08, faint orange</text>
+
+            <!-- Layer 2: Mid glow -->
+            <circle cx="230" cy="100" r="36" fill="none" stroke="rgba(255,204,77,0.25)" stroke-width="10"/>
+            <text x="340" y="99" fill="#556" font-size="9">Layer 2: 1.8&times; radius</text>
+            <text x="340" y="111" fill="#444" font-size="8">a: 0.20, mid orange</text>
+
+            <!-- Layer 1: Inner glow -->
+            <circle cx="230" cy="100" r="26" fill="none" stroke="rgba(255,242,179,0.45)" stroke-width="6"/>
+            <text x="340" y="131" fill="#556" font-size="9">Layer 1: 1.3&times; radius</text>
+            <text x="340" y="143" fill="#444" font-size="8">a: 0.40, hot white-yellow</text>
+
+            <!-- Sun body -->
+            <circle cx="230" cy="100" r="20" fill="#ffcc44"/>
+            <circle cx="230" cy="100" r="20" fill="url(#sunGrad)"/>
+            <text x="340" y="163" fill="#ffaa33" font-size="9">Sun: r = 0.8 scene units</text>
+            <text x="340" y="175" fill="#444" font-size="8">MeshBasicMaterial, procedural</text>
+
+            <!-- Gradient def -->
+            <defs>
+                <radialGradient id="sunGrad" cx="40%" cy="40%">
+                    <stop offset="0%" stop-color="#fff8cc"/>
+                    <stop offset="100%" stop-color="#cc8800"/>
+                </radialGradient>
+            </defs>
+
+            <text x="100" y="190" fill="#556" font-size="9" text-anchor="middle">AdditiveBlending</text>
+            <text x="100" y="178" fill="#556" font-size="9" text-anchor="middle">depthWrite: false</text>
+        </svg>
+        </div>
+
+        <p>Each layer is a <code>THREE.Sprite</code> with <code>AdditiveBlending</code> and <code>depthWrite: false</code>. Sprites always face the camera (billboard), making them ideal for glow effects. The procedural texture is a 256&times;256 radial gradient with four colour stops fading from the target colour to transparent.</p>
+    </div>
+
+    <!-- Coordinate System -->
+    <div class="deep-dive">
+        <h2>Coordinate System Transform</h2>
+
+        <p>Orbital mechanics operates in heliocentric ecliptic coordinates. Three.js uses a Y-up right-handed system. The mapping preserves handedness:</p>
+
+        <div style="display: flex; justify-content: center; margin: 1.5rem 0;">
+        <svg viewBox="0 0 460 140" width="440" xmlns="http://www.w3.org/2000/svg" style="font-family: -apple-system, system-ui, sans-serif;">
+            <rect width="460" height="140" fill="#0d0d1a" rx="8"/>
+
+            <!-- Ecliptic frame -->
+            <text x="100" y="20" fill="#88bbff" font-size="11" font-weight="600" text-anchor="middle">Ecliptic (Orbital)</text>
+            <line x1="100" y1="80" x2="170" y2="60" stroke="#ff6666" stroke-width="2" marker-end="url(#arrowR)"/>
+            <text x="175" y="58" fill="#ff6666" font-size="10">x</text>
+            <line x1="100" y1="80" x2="55" y2="55" stroke="#66ff66" stroke-width="2" marker-end="url(#arrowG)"/>
+            <text x="45" y="50" fill="#66ff66" font-size="10">y</text>
+            <line x1="100" y1="80" x2="100" y2="35" stroke="#6666ff" stroke-width="2" marker-end="url(#arrowB)"/>
+            <text x="106" y="33" fill="#6666ff" font-size="10">z</text>
+            <text x="100" y="105" fill="#666" font-size="8" text-anchor="middle">x,y: ecliptic plane</text>
+            <text x="100" y="116" fill="#666" font-size="8" text-anchor="middle">z: perpendicular (north)</text>
+
+            <!-- Arrow -->
+            <text x="230" y="75" fill="#ffaa33" font-size="16" text-anchor="middle">&rarr;</text>
+
+            <!-- Three.js frame -->
+            <text x="360" y="20" fill="#ffaa33" font-size="11" font-weight="600" text-anchor="middle">Three.js (Scene)</text>
+            <line x1="360" y1="80" x2="430" y2="60" stroke="#ff6666" stroke-width="2" marker-end="url(#arrowR)"/>
+            <text x="435" y="58" fill="#ff6666" font-size="10">x = x</text>
+            <line x1="360" y1="80" x2="360" y2="35" stroke="#6666ff" stroke-width="2" marker-end="url(#arrowB)"/>
+            <text x="366" y="33" fill="#6666ff" font-size="10">y = z</text>
+            <line x1="360" y1="80" x2="315" y2="55" stroke="#66ff66" stroke-width="2" marker-end="url(#arrowG)"/>
+            <text x="298" y="50" fill="#66ff66" font-size="10">z = -y</text>
+            <text x="360" y="105" fill="#666" font-size="8" text-anchor="middle">x,z: ground plane</text>
+            <text x="360" y="116" fill="#666" font-size="8" text-anchor="middle">y: up</text>
+
+            <defs>
+                <marker id="arrowR" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#ff6666"/></marker>
+                <marker id="arrowG" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#66ff66"/></marker>
+                <marker id="arrowB" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#6666ff"/></marker>
+            </defs>
+        </svg>
+        </div>
+
+        <div class="math">
+            <span class="var">scene.x</span> <span class="op">=</span> <span class="var">ecliptic.x</span> <span class="op">&times;</span> <span class="var">scale</span><br/>
+            <span class="var">scene.y</span> <span class="op">=</span> <span class="var">ecliptic.z</span> <span class="op">&times;</span> <span class="var">scale</span> <span class="comment">&nbsp;&nbsp;(north pole &rarr; up)</span><br/>
+            <span class="var">scene.z</span> <span class="op">=</span> <span class="op">-</span><span class="var">ecliptic.y</span> <span class="op">&times;</span> <span class="var">scale</span> <span class="comment">&nbsp;&nbsp;(flip to right-handed)</span><br/>
+            <br/>
+            <span class="comment">where scale = sceneDistance(|pos|) / |pos|</span>
+        </div>
+    </div>
+
+    <!-- Deployment Model -->
+    <div class="deep-dive">
+        <h2>Deployment Model</h2>
+
+        <h3>Zero Build, Zero Install</h3>
+        <p>The entire app is static files. No npm, no webpack, no transpilation. Three.js is loaded at runtime from a CDN via an ES module import map in <code>index.html</code>. A convenience script starts the local server:</p>
+
+        <div class="math">
+            <span class="fn">./web-server.sh</span> <span class="comment">&nbsp;&nbsp;# or: python3 -m http.server 8080</span>
+        </div>
+
+        <p>For production deployment, copy the entire directory to any static hosting (GitHub Pages, Netlify, S3, etc.). No server-side logic needed.</p>
+
+        <h3>Why Not file:// ?</h3>
+        <p>Browsers enforce strict CORS restrictions on <code>file://</code> URLs. ES module <code>import</code> statements, <code>fetch()</code> for the star catalogue CSV, and <code>TextureLoader</code> for JPEG textures all fail with opaque origin errors. A local HTTP server solves this by serving from <code>http://localhost</code>.</p>
+
+        <h3>Browser Compatibility</h3>
+        <table>
+            <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Edge</th></tr>
+            <tr><td>WebGL2</td><td>56+</td><td>51+</td><td>15+</td><td>79+</td></tr>
+            <tr><td>ES Modules</td><td>61+</td><td>60+</td><td>11+</td><td>79+</td></tr>
+            <tr><td>Import Maps</td><td>89+</td><td>108+</td><td>16.4+</td><td>89+</td></tr>
+            <tr><td>backdrop-filter</td><td>76+</td><td>103+</td><td>9+</td><td>79+</td></tr>
+        </table>
+        <p>Import maps are the newest requirement &mdash; Safari 16.4 (March 2023) is the effective minimum.</p>
+    </div>
+
+</body>
+</html>
