@@ -2,7 +2,7 @@
 
 A real-time solar system simulation in your browser, powered by real orbital mechanics, NASA texture maps, and 8,920 real stars from the Hipparcos catalogue. Built with Three.js — zero dependencies beyond that.
 
-You can run this for real ![here](https://pcwilliams.design/solarsystem).
+You can run this for real [here](https://pcwilliams.design/solarsystem).
 
 ![SolarSystem - Jupiter with rings, moons, and real star names](solarsystem-web.png)
 
