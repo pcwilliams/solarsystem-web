@@ -4,7 +4,7 @@ A real-time solar system simulation in your browser, powered by real orbital mec
 
 You can run this for real [here](https://pcwilliams.design/solarsystem).
 
-![SolarSystem - Jupiter with rings, moons, and real star names](solarsystem-web.png)
+![SolarSystem - Jupiter with rings, moons, and real star names](https://pcwilliams.design/dev/solarsystem-web/solarsystem-web.png)
 
 ## Features
 
@@ -17,8 +17,10 @@ You can run this for real [here](https://pcwilliams.design/solarsystem).
 - **Beautiful Sun** — Procedural granulation texture, limb darkening, 4-layer additive corona, 25-day rotation
 - **Interactive exploration** — Drag to pan, right-drag to orbit, scroll to zoom. Touch-friendly on mobile
 - **Planet strip** — Textured planet thumbnails in the toolbar — click any to fly there instantly
-- **Time control** — Real-time through 1,000,000x speed, reverse, Reset to Now
+- **Time control** — Real-time through 10,000,000x speed, reverse, Reset to Now
 - **Smart labels** — Separate toggles for planet, moon, and star labels. Auto-deconflicted, occluded behind planets
+- **11 space missions** — Lunar (Artemis II, Apollo 8/11/13) and interplanetary (Cassini, Voyager 1/2, New Horizons, Perseverance, Parker Solar Probe, BepiColombo). Multi-vehicle support, faint orange trajectory trails, live telemetry (MET, distance, speed), animated event banners, and a timeline scrub slider. Deep-link any mission via URL parameter: `?mission=apollo11`
+- **ISS** — Toggleable International Space Station with a procedural 3D model orbiting Earth at 408 km. 92-minute period, 51.6° inclination
 - **Credits panel** — Full source attribution for all textures, star data, and orbital data
 
 ## Requirements
@@ -69,11 +71,25 @@ A local HTTP server is required — opening `index.html` directly as a file won'
 ### Toolbar
 
 - **Play/Pause** — Freeze or resume orbital motion
-- **Speed menu** — 0.1x to 1,000,000x, reverse, Reset to Now
+- **Speed menu** — 0.1x to 10,000,000x, reverse, Reset to Now
 - **Orbit toggle** — Show/hide orbital path lines
 - **Label menu** — Independent toggles for Planets, Moons, Stars
+- **Missions menu** — Select from 11 missions to jump to launch time and view trajectory. Timeline slider for scrubbing through mission events. Includes hide/show toggle
+- **Satellites menu** — Toggle ISS visibility
 - **Planet strip** — Textured thumbnails for Sun, all planets, and overview
 - **Credits** — Top-right button opens full source attribution panel
+
+### URL Parameters
+
+Link directly to a mission by appending `?mission=` to the URL:
+
+```
+https://example.com/solarsystem/?mission=apollo11
+https://example.com/solarsystem/?mission=cassini
+https://example.com/solarsystem/?mission=voyager1
+```
+
+The simulation will jump to the mission's launch time and begin playback automatically.
 
 ## How It Works
 
@@ -102,6 +118,7 @@ solarsystem-web/
 ├── web-server.sh            # Launch script for local server
 ├── js/
 │   ├── main.js              # Entry point, animation loop, UI
+│   ├── missions.js          # Mission trajectories, vehicles, telemetry
 │   ├── solarSystemData.js   # All celestial body data (JPL elements)
 │   ├── orbitalMechanics.js  # Kepler solver, Julian dates, positions
 │   ├── sceneBuilder.js      # Three.js scene construction
@@ -113,6 +130,7 @@ solarsystem-web/
 ## Documentation
 
 - [CLAUDE.md](CLAUDE.md) — Developer reference and architecture
+- [MISSIONS.md](MISSIONS.md) — Mission system technical reference (for iOS port)
 - [architecture.html](https://pcwilliams.design/dev/solarsystem-web/architecture.html) — Interactive diagrams
 - [tutorial.html](https://pcwilliams.design/dev/solarsystem-web/tutorial.html) — Build narrative and development story
 
@@ -154,3 +172,19 @@ This project uses publicly available texture maps and star catalogue data for no
 
 - **Planetary orbital elements** — JPL "Keplerian Elements for Approximate Positions of the Major Planets" (Standish, 1992)
 - **IAU rotation models** — IAU Working Group on Cartographic Coordinates and Rotational Elements
+
+### Mission Trajectory Data
+
+All mission trajectory data is derived from publicly available NASA, ESA, and JAXA mission planning documents and post-flight reports. Trajectories are approximate representations for visualisation purposes.
+
+| Mission | Source | Licence |
+|---------|--------|---------|
+| Artemis II | [NASA Artemis](https://www.nasa.gov/artemis/) mission planning | Public domain |
+| Apollo 8, 11, 13 | [NASA Apollo Flight Journal](https://history.nasa.gov/afj/) | Public domain |
+| Cassini-Huygens | [NASA/JPL Cassini](https://science.nasa.gov/mission/cassini/) | Public domain |
+| Voyager 1 & 2 | [NASA/JPL Voyager](https://science.nasa.gov/mission/voyager/) | Public domain |
+| New Horizons | [NASA/JHUAPL New Horizons](https://science.nasa.gov/mission/new-horizons/) | Public domain |
+| Perseverance | [NASA/JPL Mars 2020](https://science.nasa.gov/mission/mars-2020-perseverance/) | Public domain |
+| Parker Solar Probe | [NASA/JHUAPL Parker](https://science.nasa.gov/mission/parker-solar-probe/) | Public domain |
+| BepiColombo | [ESA/JAXA BepiColombo](https://www.esa.int/Science_Exploration/Space_Science/BepiColombo) | Public |
+| ISS orbital parameters | NASA | Public domain |

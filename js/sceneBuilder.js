@@ -10,10 +10,16 @@ import { generateSunTexture, generateGlowTexture } from './textureGenerator.js';
 import { orbitPath } from './orbitalMechanics.js';
 
 // Scale constants (matching iOS app)
-const DISTANCE_SCALE_BASE = 0.5;
-const DISTANCE_SCALE_FACTOR = 15.0;
-const PLANET_SCALE_BASE = 0.00125;
-const MINIMUM_BODY_RADIUS = 0.012;
+const DISTANCE_SCALE_BASE = 0.5;       // AU base for log compression
+const DISTANCE_SCALE_FACTOR = 15.0;    // multiplier for log compression
+const PLANET_SCALE_BASE = 0.00125;     // sqrt(km) * this = scene radius
+const MINIMUM_BODY_RADIUS = 0.006;     // smallest visible body
+
+// Moon/satellite distance compression
+// Compressed distance = parentSceneR * pow(realRatio, MOON_DIST_EXPONENT) * MOON_DIST_SCALE
+// Also used for mission trajectories relative to Earth
+export const MOON_DIST_EXPONENT = 0.6;
+export const MOON_DIST_SCALE = 1.5;
 
 /**
  * Convert real AU distance to scene units using logarithmic compression.
@@ -24,9 +30,16 @@ export function sceneDistance(au) {
 
 /**
  * Convert real radius in km to scene units.
+ * For moons, pass parentRadiusKm to compute proportional to parent planet.
  */
-export function sceneRadius(km, type) {
+export function sceneRadius(km, type, parentRadiusKm = 0) {
     if (type === BodyType.STAR) return 0.8;
+    if (type === BodyType.MOON && parentRadiusKm > 0) {
+        // True proportional sizing relative to parent planet
+        const parentSceneR = Math.max(0.03, Math.min(0.35, Math.sqrt(parentRadiusKm) * PLANET_SCALE_BASE));
+        const realRatio = km / parentRadiusKm;
+        return Math.max(MINIMUM_BODY_RADIUS, parentSceneR * realRatio);
+    }
     const scaled = Math.sqrt(km) * PLANET_SCALE_BASE;
     if (type === BodyType.MOON) {
         return Math.max(MINIMUM_BODY_RADIUS, scaled);
@@ -69,9 +82,11 @@ export class SceneBuilder {
 
     /**
      * Create a Three.js sphere mesh for a celestial body.
+     * For moons, pass parentBody to compute proportional sizing.
      */
-    createBodyMesh(body) {
-        const radius = sceneRadius(body.physical.radiusKm, body.type);
+    createBodyMesh(body, parentBody = null) {
+        const parentRadiusKm = parentBody ? parentBody.physical.radiusKm : 0;
+        const radius = sceneRadius(body.physical.radiusKm, body.type, parentRadiusKm);
         const segments = body.type === BodyType.STAR ? 48 : 36;
         const geometry = new THREE.SphereGeometry(Math.max(radius, 0.02), segments, segments);
 
@@ -125,6 +140,64 @@ export class SceneBuilder {
                 this.applyTexture(moonNodes[id], filename);
             }
         }
+    }
+
+    /**
+     * Build a simplified procedural ISS model and attach to the ISS moon node.
+     * Cross-shaped: central truss with 4 pairs of solar panels.
+     * Recognisable silhouette at any zoom, zero external files.
+     */
+    buildISSModel(moonNodes) {
+        const issMesh = moonNodes['iss'];
+        if (!issMesh) return;
+
+        const s = 0.012; // overall scale in scene units
+        const model = new THREE.Group();
+
+        // Central truss (long horizontal bar)
+        const trussGeo = new THREE.BoxGeometry(s * 2.4, s * 0.06, s * 0.06);
+        const trussMat = new THREE.MeshBasicMaterial({ color: 0xcccccc });
+        model.add(new THREE.Mesh(trussGeo, trussMat));
+
+        // Pressurised modules (cross-bar, shorter)
+        const moduleGeo = new THREE.BoxGeometry(s * 0.06, s * 0.06, s * 0.8);
+        model.add(new THREE.Mesh(moduleGeo, trussMat));
+
+        // Solar panels — 4 pairs along the truss
+        const panelGeo = new THREE.PlaneGeometry(s * 0.35, s * 0.9);
+        const panelMat = new THREE.MeshBasicMaterial({
+            color: 0x1a3a6a,
+            side: THREE.DoubleSide
+        });
+
+        const panelPositions = [-0.9, -0.35, 0.35, 0.9];
+        for (const xOff of panelPositions) {
+            const panel = new THREE.Mesh(panelGeo, panelMat);
+            panel.position.set(s * xOff, 0, 0);
+            panel.rotation.x = Math.PI / 2; // lay flat in orbital plane
+            model.add(panel);
+        }
+
+        // Radiator panels (smaller, white, perpendicular)
+        const radGeo = new THREE.PlaneGeometry(s * 0.15, s * 0.4);
+        const radMat = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            side: THREE.DoubleSide
+        });
+        for (const xOff of [-0.6, 0.6]) {
+            const rad = new THREE.Mesh(radGeo, radMat);
+            rad.position.set(s * xOff, s * 0.15, 0);
+            model.add(rad);
+        }
+
+        model.name = 'iss_model';
+
+        // Attach to ISS mesh node and hide the placeholder sphere
+        issMesh.add(model);
+        issMesh.geometry.dispose();
+        issMesh.material.dispose();
+        issMesh.geometry = new THREE.BufferGeometry();
+        issMesh.material = new THREE.MeshBasicMaterial({ visible: false });
     }
 
     /**
@@ -390,7 +463,7 @@ export class SceneBuilder {
         const parentSceneRadius = sceneRadius(parentRadiusKm, BodyType.PLANET);
 
         const realRatio = moonSemiMajorKm / parentRadiusKm;
-        const compressedRatio = Math.pow(realRatio, 0.4) * 1.5;
+        const compressedRatio = Math.pow(realRatio, MOON_DIST_EXPONENT) * MOON_DIST_SCALE;
         const moonSceneDist = moonDist > 0 ? parentSceneRadius * compressedRatio : 0;
 
         let dirX, dirY, dirZ;

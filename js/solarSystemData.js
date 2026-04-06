@@ -223,8 +223,16 @@ export const sun = body('Sun', BodyType.STAR, {
     rotation: { periodHours: 25.05 * 24, obliquity: 7.25, w0: 84.176 }
 });
 
+// ISS — International Space Station (persistent Earth-orbiting object)
+// radiusKm set to 0.001 so it renders as the absolute minimum dot
+export const iss = body('ISS', BodyType.MOON, {
+    moonElements: { semiMajorAxisKm: 6779, period: 0.06436, eccentricity: 0.0001, inclination: 51.6, longitudeAtEpoch: 120.0 },
+    physical: { radiusKm: 0.001, color: [1.0, 0.95, 0.8] },
+    rotation: { periodHours: 0.06436 * 24, obliquity: 0 }
+});
+
 // Wire up moons to parent planets
-earth.moons = [earthMoon];
+earth.moons = [earthMoon, iss];
 mars.moons = [phobos, deimos];
 jupiter.moons = [io, europa, ganymede, callisto];
 saturn.moons = [titan, rhea, iapetus, dione, tethys, enceladus, mimas];

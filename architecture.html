@@ -340,7 +340,7 @@
             <span class="comment">Jupiter &asymp; 0.33 | Earth &asymp; 0.10 | Mercury &asymp; 0.06</span>
 
             <span class="heading">Moon Distance Compression</span>
-            <span class="var">moonSceneDist</span> <span class="op">=</span> <span class="var">parentRadius</span> <span class="op">&times;</span> <span class="fn">pow</span>(<span class="var">realRatio</span>, <span class="num">0.4</span>) <span class="op">&times;</span> <span class="num">1.5</span>
+            <span class="var">moonSceneDist</span> <span class="op">=</span> <span class="var">parentRadius</span> <span class="op">&times;</span> <span class="fn">pow</span>(<span class="var">realRatio</span>, <span class="num">MOON_DIST_EXPONENT</span>) <span class="op">&times;</span> <span class="num">MOON_DIST_SCALE</span> <span class="comment">&nbsp;&nbsp;// 0.6, 1.5 &mdash; centralised in sceneBuilder.js</span>
             <br/>
             <span class="comment">Moon &asymp; 8.8&times; Earth | Io &asymp; 3.1&times; Jupiter | Callisto &asymp; 5.7&times; Jupiter</span>
         </div>
@@ -565,6 +565,9 @@
             <div class="label">The onTap() pattern</div>
             <p>All interactive elements use <code>onTap(element, handler)</code> instead of <code>addEventListener('click', handler)</code>. The touchend fires immediately (no 300ms delay), and the click serves as a mouse fallback. A <code>touchFired</code> flag prevents the click from re-firing after a touch.</p>
         </div>
+
+        <h3>Icon rendering &amp; HTML caching</h3>
+        <p>Two more mobile gotchas surfaced after deployment. First, unicode emoji icons (e.g. 🚀) render inconsistently across mobile browsers &mdash; some show tofu boxes. All toolbar icons were replaced with inline SVG paths using <code>currentColor</code> fill so they render identically everywhere. Second, Mobile Safari aggressively caches HTML, leaving users stuck on old versions after a deployment. The page now sets <code>Cache-Control: no-cache, no-store, must-revalidate</code> plus <code>Pragma: no-cache</code> and <code>Expires: 0</code> meta tags. Textures (large, immutable) still cache normally.</p>
     </div>
 
     <!-- Saturn Ring Geometry -->
@@ -740,6 +743,189 @@
             <tr><td>backdrop-filter</td><td>76+</td><td>103+</td><td>9+</td><td>79+</td></tr>
         </table>
         <p>Import maps are the newest requirement &mdash; Safari 16.4 (March 2023) is the effective minimum.</p>
+    </div>
+
+    <!-- Mission System Architecture -->
+    <div class="diagram-section">
+        <h2>15. Mission System Architecture</h2>
+        <div class="mermaid">
+            graph TD
+                MD[Mission Data<br/>waypoints + events + vehicles] --> MM[MissionManager]
+                MM --> ROT[Moon Direction<br/>atan2 at flyby time]
+                ROT --> WP[Rotated Waypoints<br/>ecliptic frame km]
+                WP --> CR[CatmullRom Curve<br/>time-parameterised]
+                CR --> SC[Scene Coordinates<br/>pow 0.6 compression]
+                SC --> GRP[THREE.Group<br/>at Earth position]
+                GRP --> LINE[Trajectory Line<br/>vertex colours]
+                GRP --> GLOW[Glow Points<br/>additive blend]
+                GRP --> MRK[Vehicle Markers<br/>depthTest false]
+                GRP --> EVT[Event Markers<br/>TLI Flyby etc]
+                MM --> TEL[Telemetry<br/>MET dist speed]
+                MM --> BAN[Event Banners<br/>animated overlay]
+
+                style MD fill:#332200,stroke:#ffaa33,color:#fff
+                style MM fill:#1a1a3e,stroke:#4488ff,color:#fff
+                style GRP fill:#1a2a1a,stroke:#44aa44,color:#fff
+                style TEL fill:#2a1a00,stroke:#ffaa33,color:#fff
+                style BAN fill:#2a1a00,stroke:#ffaa33,color:#fff
+        </div>
+    </div>
+
+    <div class="deep-dive">
+        <h2>Mission Multi-Vehicle Architecture</h2>
+
+        <h3>Data Model</h3>
+        <p>Each mission contains a <code>vehicles</code> array. Each vehicle has independent waypoints, colour, and a <code>primary</code> flag for camera tracking. This supports missions where craft separate &mdash; Artemis II has SLS, SRBs, and Orion; Apollo 11 has Columbia (CSM) and Eagle (LM) diverging at the Moon.</p>
+
+        <h3>Coordinate Frame</h3>
+        <p>Waypoints are defined in a <strong>Moon-aligned geocentric frame</strong>: X points toward the Moon at flyby time, Y is perpendicular in the orbital plane, Z is out-of-ecliptic. At initialization, the code computes the Moon&rsquo;s ecliptic direction via <code>moonPosition()</code> and rotates all waypoints. This means any launch date works &mdash; the trajectory always wraps around the Moon&rsquo;s actual position.</p>
+
+        <h3>Distance Compression</h3>
+        <p>Trajectories use the same <code>pow(ratio, MOON_DIST_EXPONENT) &times; MOON_DIST_SCALE</code> compression as moon positioning (constants centralised in <code>sceneBuilder.js</code>: 0.6 and 1.5). The 0.6 exponent (changed from 0.4) gives more realistic proportions &mdash; the Moon appears at 17.6 Earth radii (was 7.7). Flyby waypoints at ~398,000 km (close to real 395,000 km) now produce visible separation.</p>
+
+        <h3>Distance Compression Effects on Trajectory Appearance</h3>
+        <p>The <code>pow(0.6)</code> compression (changed from 0.4) has two non-obvious effects on trajectory rendering, though both are less severe than before. First, it amplifies out-of-plane (Z) motion: at Moon distance, X and Y coordinates are compressed but Z stays relatively large in the scene. A constant Z offset (e.g. 4,500 km) makes the trajectory appear to pass over the Moon&rsquo;s pole instead of behind the far side &mdash; Z must be reduced to near-zero at the flyby point. Second, the compression still reduces separation at large distances, though the 0.6 exponent preserves more detail than 0.4 &mdash; flyby waypoints at ~398,000 km (close to the real 395,000 km) now produce visible separation from the Moon. These effects mean geocentric waypoints still benefit from scene-aware tuning.</p>
+
+        <h3>Time-Parameterised CatmullRom</h3>
+        <p>The CatmullRom curve gives smooth visual shape, but is sampled at uniform <em>time</em> steps (not arc-length). Waypoint index maps to curve parameter <code>u = (i + frac) / (N-1)</code>, ensuring the line progresses in sync with mission elapsed time.</p>
+
+        <h3>Moon Orbit &amp; Landing Runtime Computation</h3>
+        <p>Vehicles with a <code>moonOrbit: { startTime, endTime, periodHours, radiusKm }</code> property orbit the Moon at runtime using smooth cos/sin circular motion around the Moon&rsquo;s actual scene position. The period is typically 2x real (e.g. 4 hours vs ~2 hours) for visual comfort at replay speeds. Apollo 11&rsquo;s Columbia uses this for the full lunar orbit phase; Eagle has a three-phase lifecycle: <code>moonOrbit</code> (orbits with Columbia pre-descent), <code>moonLanding</code> (tracks Moon surface during EVA), <code>moonOrbitReturn</code> (orbits post-ascent). Eagle undocks from Columbia&rsquo;s computed orbit position, not from a fixed waypoint. All Moon-relative positions use the Moon&rsquo;s semi-major axis distance (matching the rendered mesh) rather than the varying actual distance from <code>moonPosition()</code>, which fluctuates &plusmn;21,000 km due to eccentricity.</p>
+
+        <h3>Lazy-Follow Camera for Missions</h3>
+        <p>The mission camera uses a two-part strategy. <strong>Initial snap:</strong> the camera snaps to Earth&rsquo;s current position + the trajectory&rsquo;s local center, zoomed to fit just the trajectory extent. <code>getMissionBounds()</code> returns both wide absolute bounds (<code>center</code>/<code>radius</code> &mdash; Earth start+end + trajectory at both) and tight trajectory-only bounds (<code>localCenter</code>/<code>localRadius</code> &mdash; relative to Earth). Initial framing uses <code>localRadius</code> so the trajectory fills the view tightly. The camera azimuth is set ~31&deg; off the Sun direction (0.55 radians) for a dramatic two-thirds illuminated view; elevation 0.3 radians (~17&deg;) above the ecliptic.</p>
+        <p><strong>Lazy follow during playback:</strong> each frame, the camera target lerps toward Earth&rsquo;s current position + trajectory center at <code>lerp(0.02)</code>. This keeps the trajectory large and centered while Earth visibly drifts through space &mdash; stars move in the background. The initial snap position matches the lazy-follow target, so there is no animation glitch at start. User interaction (drag/scroll) clears <code>activeMissionId</code>, breaking the lazy follow and giving full manual control.</p>
+
+        <h3>Telemetry</h3>
+        <p><code>getTelemetry()</code> computes distance from geocentric position length, and speed from a finite-difference derivative (position delta over 0.01 hours). Displayed in dual units: km + miles, km/s + mph.</p>
+    </div>
+
+    <!-- Heliocentric Missions & Satellite System -->
+    <div class="diagram-section">
+        <h2>16. Heliocentric Missions &amp; Satellite System</h2>
+        <div class="mermaid">
+            graph TD
+                DEF[Mission Definition<br/>type: geocentric | heliocentric] --> TYPE{Coordinate<br/>Frame?}
+                TYPE -->|geocentric| GEO[Moon-Aligned Frame<br/>Earth-centred km]
+                TYPE -->|heliocentric| HEL[Ecliptic Frame<br/>Sun-centred AU]
+
+                HEL --> AB[anchorBody Resolution<br/>import heliocentricPosition]
+                AB --> SNAP[Waypoints Snapped<br/>to Real Planet Positions]
+                SNAP --> AUTO{autoTrajectory?}
+                AUTO -->|yes| ARC[_generateTransferArc<br/>Hohmann-style ellipse]
+                AUTO -->|no| MANUAL[Manual Waypoints<br/>CatmullRom curve]
+                ARC --> SCENE[Scene Coordinates<br/>log distance scaling]
+                MANUAL --> SCENE
+
+                GEO --> ROT[Moon Direction<br/>atan2 at flyby time]
+                ROT --> SCENE
+
+                SCENE --> GRP[THREE.Group<br/>trajectory + markers]
+                GRP --> LINE[Trajectory Line<br/>vertex colours]
+                GRP --> VEH[Vehicle Markers<br/>depthTest false]
+
+                DEF --> SAT{Satellite?}
+                SAT -->|ISS| PROC[Procedural Geometry<br/>truss + panels + radiators]
+                PROC --> MOON[Added as Earth Moon<br/>period 0.064 days]
+
+                DEF --> TL[Timeline Slider<br/>live scrub]
+                TL --> POS[Position at Time<br/>curve.getPointAt]
+                TL --> UI[UI Update<br/>telemetry + banners + labels]
+
+                DEF --> URL[URL Parameters<br/>?mission=voyager1]
+
+                style DEF fill:#332200,stroke:#ffaa33,color:#fff
+                style TYPE fill:#1a1a3e,stroke:#4488ff,color:#fff
+                style HEL fill:#1a2a1a,stroke:#44aa44,color:#fff
+                style GEO fill:#1a2a1a,stroke:#44aa44,color:#fff
+                style AB fill:#2a1a2a,stroke:#cc88ff,color:#fff
+                style SNAP fill:#2a1a2a,stroke:#cc88ff,color:#fff
+                style AUTO fill:#1a1a3e,stroke:#4488ff,color:#fff
+                style ARC fill:#2a1a00,stroke:#ffaa33,color:#fff
+                style PROC fill:#1a2a2a,stroke:#44aacc,color:#fff
+                style MOON fill:#1a2a2a,stroke:#44aacc,color:#fff
+                style TL fill:#2a2a1a,stroke:#aaaa44,color:#fff
+                style URL fill:#2a2a1a,stroke:#aaaa44,color:#fff
+                style SAT fill:#1a1a3e,stroke:#4488ff,color:#fff
+        </div>
+    </div>
+
+    <div class="deep-dive">
+        <h2>Heliocentric Missions &amp; Satellite Deep Dive</h2>
+
+        <h3>anchorBody System</h3>
+        <p>Heliocentric missions (Voyager, New Horizons, Pioneer, etc.) define waypoints at planetary encounters, but approximate coordinates would not match the actual computed planet positions in the scene. The <code>anchorBody</code> property on each waypoint names a planet (e.g. <code>"jupiter"</code>, <code>"saturn"</code>). At mission initialisation, the code imports <code>heliocentricPosition()</code> from <code>orbitalMechanics.js</code> and resolves each anchored waypoint to the planet&rsquo;s real ecliptic position at the waypoint&rsquo;s timestamp. This guarantees the trajectory passes exactly through each planet&rsquo;s rendered position.</p>
+
+        <div class="math">
+            <span class="heading">anchorBody resolution (per waypoint):</span>
+            <span class="var">wp.anchorBody</span> <span class="op">=</span> <span class="str">"jupiter"</span><br/>
+            <span class="var">elements</span> <span class="op">=</span> <span class="fn">solarSystemData</span>[<span class="var">wp.anchorBody</span>]<br/>
+            <span class="var">T</span> <span class="op">=</span> <span class="fn">julianCenturies</span>(<span class="var">wp.date</span>)<br/>
+            <span class="var">pos</span> <span class="op">=</span> <span class="fn">heliocentricPosition</span>(<span class="var">elements</span>, <span class="var">T</span>)<br/>
+            <span class="var">wp.x</span> <span class="op">=</span> <span class="var">pos.x</span>; <span class="var">wp.y</span> <span class="op">=</span> <span class="var">pos.y</span>; <span class="var">wp.z</span> <span class="op">=</span> <span class="var">pos.z</span><br/>
+            <br/>
+            <span class="comment">Coordinates are in AU, matching the heliocentric orbital mechanics pipeline.</span><br/>
+            <span class="comment">Scene position uses the same log(1 + AU/0.5) &times; 15 scaling as planets.</span>
+        </div>
+
+        <h3>anchorMoon System (Geocentric)</h3>
+        <p>The geocentric equivalent of <code>anchorBody</code>: waypoints with <code>anchorMoon: true</code> are resolved to the Moon&rsquo;s actual ecliptic position at that timestamp using <code>moonPosition()</code>, converting AU to km and using the semi-major axis for distance matching. Used for Apollo 11 Columbia&rsquo;s LOI, TEI, and early return waypoints so the trajectory line departs smoothly from where the Moon actually is.</p>
+
+        <h3>Interplanetary Speed Consistency</h3>
+        <p>Anchored waypoints (where the trajectory snaps to a planet) can cause speed spikes because adjacent waypoints may be far in distance but close in time. The fix is to always add transition waypoints ~1,000&ndash;2,000 hours before and after anchored points. Applied across Cassini (near Venus/Saturn), New Horizons (near Jupiter/Pluto), Voyager 1 (post-Jupiter tightened from 30+ km/s to ~17 km/s), and Voyager 2 (consistent 12&ndash;17 km/s throughout).</p>
+
+        <h3>autoTrajectory Transfer Arc Generation</h3>
+        <p>Many interplanetary missions follow Hohmann-like transfer orbits between planetary encounters. Rather than requiring dozens of hand-placed intermediate waypoints, the <code>autoTrajectory</code> flag triggers the <code>_generateTransferArc()</code> method. This computes a smooth elliptical arc between consecutive anchor points:</p>
+
+        <div class="math">
+            <span class="heading">_generateTransferArc(from, to):</span>
+            <span class="var">r1</span> <span class="op">=</span> <span class="fn">|from|</span> <span class="comment">&nbsp;&nbsp;heliocentric distance (AU)</span><br/>
+            <span class="var">r2</span> <span class="op">=</span> <span class="fn">|to|</span><br/>
+            <span class="var">a</span> <span class="op">=</span> (<span class="var">r1</span> <span class="op">+</span> <span class="var">r2</span>) <span class="op">/</span> <span class="num">2</span> <span class="comment">&nbsp;&nbsp;semi-major axis of transfer ellipse</span><br/>
+            <span class="var">angle1</span> <span class="op">=</span> <span class="fn">atan2</span>(<span class="var">from.y</span>, <span class="var">from.x</span>)<br/>
+            <span class="var">angle2</span> <span class="op">=</span> <span class="fn">atan2</span>(<span class="var">to.y</span>, <span class="var">to.x</span>)<br/>
+            <br/>
+            <span class="comment">Interpolate angle from angle1 to angle2 in N steps.</span><br/>
+            <span class="comment">At each step, radius follows the ellipse: r = a(1-e&sup2;) / (1 + e&middot;cos(&theta;)).</span><br/>
+            <span class="comment">The generated points form a visually smooth arc through the ecliptic plane.</span>
+        </div>
+
+        <h3>ISS as Earth Moon with Procedural Geometry</h3>
+        <p>The International Space Station is modelled as an Earth satellite (moon) with an orbital period of 0.064 days (~92 minutes). Its visual representation uses procedural Three.js geometry rather than a texture-mapped sphere:</p>
+
+        <div class="math">
+            <span class="heading">ISS procedural model:</span>
+            <span class="comment">Central truss: elongated BoxGeometry (main backbone)</span><br/>
+            <span class="comment">Solar panels: 4&times; thin BoxGeometry, gold/blue tint, attached to truss ends</span><br/>
+            <span class="comment">Radiator panels: 2&times; white BoxGeometry, perpendicular to solar panels</span><br/>
+            <span class="comment">Habitat modules: 2&times; small CylinderGeometry at truss centre</span><br/>
+            <br/>
+            <span class="comment">All geometry combined into a single THREE.Group.</span><br/>
+            <span class="comment">Rendered at moon-scale minimum floor (0.012 scene units).</span><br/>
+            <span class="comment">Listed in Satellites menu, separate from natural moons.</span>
+        </div>
+
+        <h3>Timeline Slider Live Scrub</h3>
+        <p>The timeline slider allows scrubbing through a mission&rsquo;s duration. The slider is time-mapped: position 0% corresponds to the mission start date and 100% to the end date. During scrub, the simulation date is overridden (even while paused) and all dependent systems update:</p>
+
+        <div class="math">
+            <span class="heading">Timeline scrub update chain:</span>
+            <span class="var">sliderFraction</span> <span class="op">&rarr;</span> <span class="var">simDate</span> <span class="op">=</span> <span class="var">start</span> <span class="op">+</span> <span class="var">fraction</span> <span class="op">&times;</span> <span class="var">duration</span><br/>
+            <span class="var">simDate</span> <span class="op">&rarr;</span> <span class="fn">updatePositions()</span> <span class="comment">&nbsp;&nbsp;planets + moons move</span><br/>
+            <span class="var">simDate</span> <span class="op">&rarr;</span> <span class="fn">missionManager.update()</span> <span class="comment">&nbsp;&nbsp;vehicle position on curve</span><br/>
+            <span class="var">simDate</span> <span class="op">&rarr;</span> <span class="fn">updateTelemetry()</span> <span class="comment">&nbsp;&nbsp;MET, distance, speed</span><br/>
+            <span class="var">simDate</span> <span class="op">&rarr;</span> <span class="fn">updateLabels()</span> <span class="comment">&nbsp;&nbsp;DOM overlay repositioned</span><br/>
+            <span class="var">simDate</span> <span class="op">&rarr;</span> <span class="fn">updateBanners()</span> <span class="comment">&nbsp;&nbsp;event markers</span><br/>
+            <br/>
+            <span class="comment">The animation loop may be paused, but the scrub triggers a full render pass.</span><br/>
+            <span class="comment">This ensures the scene is always visually consistent with the slider position.</span>
+        </div>
+
+        <h3>End-of-Mission Speed Reset</h3>
+        <p>Each frame, the animation loop checks whether a mission is selected and the elapsed time has exceeded the mission&rsquo;s <code>durationHours</code>. If so and <code>timeScale &gt; 1</code>, it snaps back to 1x real-time, preventing the simulation from continuing to race at high speed after the mission completes.</p>
+
+        <h3>URL Parameter Mission Selection</h3>
+        <p>Missions can be deep-linked via URL query parameters: <code>?mission=voyager1</code> loads the page with that mission pre-selected, the camera focused on the trajectory, and the timeline slider visible. The parameter is parsed from <code>window.location.search</code> at startup and matched against mission IDs in the data.</p>
     </div>
 
 </body>

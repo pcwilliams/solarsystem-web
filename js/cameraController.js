@@ -11,6 +11,7 @@ export class CameraController {
         this.domElement = domElement;
         this.onBodyClicked = callbacks.onBodyClicked || (() => {});
         this.onDoubleClick = callbacks.onDoubleClick || (() => {});
+        this.onUserInteraction = callbacks.onUserInteraction || (() => {});
 
         // Camera orbital state (spherical coordinates)
         this.distance = 40.0;
@@ -55,9 +56,11 @@ export class CameraController {
         this.camera.lookAt(this.target);
     }
 
-    setCamera(target, distance) {
+    setCamera(target, distance, azimuth, elevation) {
         this.target.copy(target);
         this.distance = distance;
+        if (azimuth !== undefined) this.azimuth = azimuth;
+        if (elevation !== undefined) this.elevation = elevation;
         this.updateCamera();
     }
 
@@ -139,6 +142,7 @@ export class CameraController {
 
         if (this._isDragging) {
             // Translate target in camera-local right/up plane
+            this.onUserInteraction();
             const speed = this.distance * 0.002;
             const right = new THREE.Vector3();
             const up = new THREE.Vector3();
@@ -150,6 +154,7 @@ export class CameraController {
             this.target.addScaledVector(up, dy * speed);
             this.updateCamera();
         } else if (this._isOrbiting) {
+            this.onUserInteraction();
             this.azimuth -= dx * 0.005;
             this.elevation += dy * 0.005;
             this.updateCamera();
@@ -187,6 +192,7 @@ export class CameraController {
 
     _onWheel(e) {
         e.preventDefault();
+        this.onUserInteraction();
         const factor = e.deltaY > 0 ? 1.1 : 0.9;
         this.distance = Math.max(this.minDistance, Math.min(this.maxDistance, this.distance * factor));
         this.updateCamera();
@@ -232,6 +238,7 @@ export class CameraController {
                 const totalDy = e.touches[0].clientY - this._clickStartPos.y;
                 if (Math.abs(totalDx) > 5 || Math.abs(totalDy) > 5) {
                     this._isDragging = true;
+                    this.onUserInteraction();
                 } else {
                     return;
                 }
@@ -251,6 +258,7 @@ export class CameraController {
             const t0 = { x: e.touches[0].clientX, y: e.touches[0].clientY };
             const t1 = { x: e.touches[1].clientX, y: e.touches[1].clientY };
 
+            this.onUserInteraction();
             // Orbit from midpoint delta
             const midX = (t0.x + t1.x) / 2;
             const midY = (t0.y + t1.y) / 2;
