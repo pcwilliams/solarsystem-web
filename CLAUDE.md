@@ -645,8 +645,8 @@ THREE.Scene (black background)
 Custom flat disc `BufferGeometry` with radial UV mapping:
 - 72 radial segments x 4 ring segments
 - `u` maps 0 (inner) to 1 (outer) — radially across the ring strip texture
-- Cassini colour map + alpha transparency for ring density
-- `MeshBasicMaterial` with `DoubleSide` for visibility
+- Single 2048×125 RGBA PNG (`textures/saturn_rings.png`, Solar System Scope CC-BY 4.0). The texture is essentially a luminance/alpha density map with negligible chroma, so the material's `color` is set to a warm cream (`0xe8d8b8`) to tint the rings into a Cassini-natural-colour appearance. Without the tint they render greyscale; more saturated tints (e.g. `0xd4b483`) read as brown.
+- `MeshBasicMaterial` with `DoubleSide` and `transparent: true` to honour the alpha channel
 - Counter-rotated each frame via quaternion to cancel parent planet's spin
 
 ### Procedural Textures
@@ -784,8 +784,8 @@ The cross-browser / iOS Safari / generic web performance gotchas (CORS on file:/
 ### Three.js
 - **PointLight intensity**: Three.js uses physically correct lighting by default. Intensity values are much lower than SceneKit's (50 vs 2000) due to different falloff models.
 - **Tone mapping exposure**: `ACESFilmicToneMapping` darkens the scene — compensate with `toneMappingExposure: 1.2`
-- **GIF alpha maps**: Three.js `TextureLoader` handles GIF files (Saturn ring alpha), but ensure the image has loaded before relying on it
 - **Sprite vs Mesh for glow**: Sprites always face the camera (billboard), which is ideal for the Sun's corona glow. Nested spheres (iOS approach) would require `DoubleSide` and show seams at certain angles.
+- **SSS Saturn ring is alpha-density, not coloured**: The Solar System Scope ring texture (`saturn_rings.png`) carries the ring banding as alpha + grey-luminance with effectively no chroma. Without a material tint the rings render greyscale; with `material.color = 0xe8d8b8` they read as natural Saturn rings. More saturated tints (e.g. `0xd4b483`) take them brown — too warm for Cassini-style natural colour. Test in browser, not just in image previews.
 
 ### Camera (project-specific)
 - **Zoom range consistency**: All zoom controls (slider, scroll, pinch, presets, `setDistance`) must clamp to the same 0.5–250 range. Call `syncZoomSlider()` after any programmatic camera change.
@@ -809,6 +809,13 @@ The cross-browser / iOS Safari / generic web performance gotchas (CORS on file:/
 - **Moon orbit-to-return transition**: After `moonOrbit` ends, the marker must lerp over ~5 hours from the Moon's vicinity to the waypoint-based return trajectory. Without this, the vehicle jumps visibly when orbit mode ends.
 - **Timeline slider scrub**: Must pause playback before adjusting simulation time to avoid fighting with the animation loop. Resume on release.
 - **Moon proportional sizing**: Moons use `sceneRadius(km, type, parentRadiusKm)` — true ratio to parent. Minimum floor 0.006.
+
+### Web / Browser (project-specific)
+- **Safari aggressively caches JS modules even when the HTML is `no-cache`**: When iterating on `js/main.js` or any imported module, Safari may serve a cached copy after a normal reload — the page's no-cache meta tags apply to the HTML but not to its module imports. Workaround during dev: append a version query (`<script type="module" src="js/main.js?v=2"></script>`) to bust the cache, bump the number when iterating, then revert before deploy. The python `http.server` log will show a fresh `200` (instead of `304`) when the cache is actually busted — useful for confirming the new code is loaded.
+- **`do JavaScript` and `keystroke` osascript paths to Safari are blocked by default**: For programmatic reload during dev, the only reliably-allowed AppleScript trick is re-setting the tab URL: `set URL of current tab of window 1 to <new url>`. Combined with a cache-buster query (`?t=$RANDOM`), this gives a clean reload without Accessibility/Apple-Events permissions prompts.
+
+### Architecture / Tutorial HTML (Mermaid)
+- **Mermaid 10.x parses bare `|` inside `[node label]` as edge-label syntax**: A label like `[Mission Definition<br/>geocentric | heliocentric]` causes a "Syntax error in text" at render time in mermaid 10.9.5+. Wrap the label in double quotes: `["Mission Definition<br/>geocentric | heliocentric"]` and the parser takes it literally. Watch out for this in `architecture.html` whenever a node label contains a logical-OR / pipe character.
 
 ## Relationship to iOS App
 
@@ -855,6 +862,32 @@ filter cutoff or want fresher names.
 3. **Full web app**: `~/${DEPLOY_HOST}-azure/wwwroot/solarsystem` — added by the wrapper (index.html, js/, textures/, excluding CLAUDE.md / README.md / MISSIONS.md / architecture.html / tutorial.html / dev scripts)
 
 The README in the git clone has image/HTML links rewritten to point at the dev-pages URL. The wrapper is the only project file that's aware of the live-app deploy; the core is shared with every other appledev project.
+
+### `deploy-azure.sh` — FTPS push to Azure App Service
+
+After `update-for-web.sh` has staged everything into `~/${DEPLOY_HOST}-azure/wwwroot/...`, this script pushes both staging folders to the Azure host via FTPS:
+
+- `~/${DEPLOY_HOST}-azure/wwwroot/solarsystem`        → `${FTP_REMOTE_ROOT}/solarsystem`
+- `~/${DEPLOY_HOST}-azure/wwwroot/dev/solarsystem-web` → `${FTP_REMOTE_ROOT}/dev/solarsystem-web`
+
+Credentials live in `~/appledev/setupenv.sh` (`FTP_HOST`, `FTP_USER`, `FTP_PASSWORD`, `FTP_REMOTE_ROOT`). The script supports `--dry-run`. Uses `lftp` (install via `brew install lftp`).
+
+The script is private deploy tooling — both `update-for-web.sh`'s wrapper exclude list and the shared core's `RSYNC_EXCLUDES` filter it out, so it never lands in the GitHub mirror or the live web folder. Same convention as `update-for-web.sh` itself.
+
+Three lftp gotchas baked into the script:
+
+- **`mirror --no-perms` is mandatory.** Without it, lftp tries to chmod the remote file to whatever the local mode is (typically 600 under umask 077 on this machine). Azure honours the chmod and the web server can no longer read the files — every URL returns 5xx. `--no-perms` lets Azure use its defaults (typically 644).
+- **`mirror --only-newer` + `--parallel=4`** for fast incremental deploys — only changed files re-upload, four concurrent transfers handle the texture batch quickly.
+- **lftp's `--verbose` output embeds credentials in URLs.** Every `get`/`put`/`rm`/`chmod` line includes `user:password@host`. The script pipes lftp output through a `sed` filter that redacts the password before it hits stdout/logs.
+
+For the FTPS connection itself: `set ssl:verify-certificate yes` + `set ftp:ssl-protect-data yes` + `set ftp:ssl-force yes` enforce TLS on both control and data channels. Azure App Service is FTPS-only by default (plain FTP is disabled at the endpoint).
+
+After running both scripts, four destinations are in sync:
+
+1. `~/dev/git/solarsystem-web/` (local git mirror) — push to GitHub from here
+2. `~/${DEPLOY_HOST}-azure/wwwroot/dev/solarsystem-web/` (local dev-pages staging)
+3. `~/${DEPLOY_HOST}-azure/wwwroot/solarsystem/` (local live-app staging)
+4. `https://${DEPLOY_HOST}/...` (live + dev pages on Azure)
 
 ## Future Roadmap
 
