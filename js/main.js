@@ -104,13 +104,28 @@ function init() {
     // Handle resize
     window.addEventListener('resize', onResize);
 
-    // Check URL parameters for mission auto-select
+    // Check URL parameters for mission auto-select or body focus
     const urlParams = new URLSearchParams(window.location.search);
     const missionParam = urlParams.get('mission');
     if (missionParam && missionManager) {
         const mission = missionManager.getMissions().find(m => m.id === missionParam);
         if (mission) {
             setTimeout(() => jumpToMission(missionParam), 100);
+        }
+    }
+    const focusParam = urlParams.get('focus');
+    if (focusParam) {
+        const id = focusParam.toLowerCase();
+        let target = bodies.find(b => b.id === id);
+        if (!target) {
+            for (const planet of bodies) {
+                if (!planet.moons) continue;
+                const moon = planet.moons.find(m => m.id === id);
+                if (moon) { target = moon; break; }
+            }
+        }
+        if (target) {
+            setTimeout(() => selectBody(target), 100);
         }
     }
 

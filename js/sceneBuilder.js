@@ -1,7 +1,7 @@
 // sceneBuilder.js
 // Constructs and configures the Three.js scene graph. Creates sphere meshes
 // for celestial bodies, orbital path lines, Saturn's ring disc,
-// the Sun's multi-layered glow corona, a real starfield from the HYG
+// the Sun's multi-layered glow corona, a real starfield from the BSC5
 // catalogue (with per-vertex B-V colour), and scene lighting.
 
 import * as THREE from 'three';
@@ -276,21 +276,19 @@ export class SceneBuilder {
         geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
         geometry.setIndex(indices);
 
-        // Load ring textures
+        // Load ring textures. The Solar System Scope ring strip is essentially
+        // a density/alpha map with little chroma; tint with a warm cream that
+        // approximates Cassini natural-colour ring imagery.
         const ringMaterial = new THREE.MeshBasicMaterial({
             side: THREE.DoubleSide,
             transparent: true,
-            depthWrite: false
+            depthWrite: false,
+            color: 0xe8d8b8
         });
 
-        this.textureLoader.load('textures/saturn_ring_color.jpg', (tex) => {
+        this.textureLoader.load('textures/saturn_rings.png', (tex) => {
             tex.colorSpace = THREE.SRGBColorSpace;
             ringMaterial.map = tex;
-            ringMaterial.needsUpdate = true;
-        });
-
-        this.textureLoader.load('textures/saturn_ring_alpha.gif', (tex) => {
-            ringMaterial.alphaMap = tex;
             ringMaterial.needsUpdate = true;
         });
 
@@ -330,7 +328,7 @@ export class SceneBuilder {
     }
 
     /**
-     * Load the HYG star catalogue and create a point cloud with per-vertex colour
+     * Load the BSC5 star catalogue and create a point cloud with per-vertex colour
      * and brightness-tiered point sizes.
      */
     async loadStarfield(scene) {

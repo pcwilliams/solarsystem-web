@@ -147,7 +147,11 @@ Use the parent's **semi-major axis** (not its instantaneous distance) when placi
 
 ## Star catalogue rendering
 
-Bundle **HYG (Hipparcos/Yale/Gliese) v38**, public domain. Filter to naked-eye visibility (`mag ≤ 6.5`) — that's roughly 8,920 stars. Map RA/Dec to a celestial sphere at large radius (`r = 500` scene units works well).
+Bundle the **Yale Bright Star Catalog, 5th Rev. (BSC5)** — Hoffleit & Warren (1991), prepared at NASA Goddard NSSDC/ADC, public domain. Available via VizieR catalogue [V/50](https://cdsarc.cds.unistra.fr/viz-bin/cat/V/50) as `catalog.gz` (197-byte fixed-width records, 9,110 stars). Filter to naked-eye visibility (`mag ≤ 6.5`) — that's roughly 8,400 stars. Map RA/Dec to a celestial sphere at large radius (`r = 500` scene units works well).
+
+Avoid the **HYG database** unless the project tolerates CC-BY-SA. HYG v3+ is licensed CC-BY-SA 4.0 (was 2.5 in earlier versions) — the share-alike clause is incompatible with permissive (MIT/BSD) project licences. BSC5 is a clean PD substitute that preserves the same RA/Dec/Vmag/B-V columns; rebuild from the raw VizieR file with a small parser script.
+
+Star *names* (Sirius, Vega, Aldebaran …) are traditional / IAU-standardised — factual references, not subject to copyright, so they can be embedded freely or cross-referenced from the IAU-CSN list regardless of catalogue licence.
 
 Use **4 brightness tiers** with different point sizes (mag < 1.5 → 3–8 px; mag 5–6.5 → 0.8–2 px) and **per-vertex B-V colour** for spectral type (blue-white O/B → white A → yellow G → orange K → red M).
 
@@ -330,21 +334,26 @@ Test specifically:
 - Mission rotation, anchor resolution, autoTimeScale preset snap, transfer-arc monotonic timeline.
 - Event fire-once + rewind reset (cursor must reset even when sim time is outside the active window, so jumping pre-launch still clears it).
 
-## Texture / data sources (public domain or CC-BY)
+## Texture / data sources (MIT-redistributable)
 
-For NASA/USGS textures and the HYG star catalogue, these sources have worked:
+These sources have worked, are easy to fetch, and stay clear of share-alike (CC-BY-SA) and non-commercial (CC-BY-NC) licences that would block bundling under a permissive project licence:
 
-- Earth: NASA Blue Marble Next Generation
-- Moon: NASA LRO Camera
-- Mars: USGS Viking MDIM21 via Wikimedia
-- Mercury / Venus / Uranus / Neptune: Solar System Scope (CC-BY 4.0)
-- Jupiter: NASA/JPL/SSI Cassini PIA07782
-- Saturn (+ rings): Cassini composite, Planet Pixel Emporium
-- Pluto: NASA/JHUAPL/SwRI New Horizons
-- Galilean moons: Voyager/Galileo composites (Steve Albers, Bjorn Jonsson)
-- Stars: HYG Database v38 (Hipparcos/Yale/Gliese, public domain)
+- Earth: NASA Blue Marble Next Generation — public domain
+- Moon: NASA LRO Camera — public domain
+- Mars: USGS Viking MDIM21 via Wikimedia — public domain
+- Mercury / Venus / Saturn (body + rings) / Uranus / Neptune: [Solar System Scope](https://www.solarsystemscope.com/textures/) — CC-BY 4.0
+- Jupiter: NASA/JPL/SSI Cassini [PIA07782](https://photojournal.jpl.nasa.gov/catalog/PIA07782) — public domain
+- Pluto: NASA/JHUAPL/SwRI New Horizons — public domain
+- Galilean moons (Io, Ganymede, Callisto): [Björn Jónsson](https://bjj.mmedia.is/) from NASA/JPL Voyager + Galileo data — "publicly available, please mention origin" (CC-BY-equivalent)
+- Europa: NASA/JPL Voyager/Galileo mosaic via Wikimedia — public domain
+- Stars: Yale Bright Star Catalog 5th Rev. (BSC5), Hoffleit & Warren 1991 / NASA Goddard NSSDC/ADC, via [VizieR V/50](https://cdsarc.cds.unistra.fr/viz-bin/cat/V/50) — public domain
 
-All NASA and USGS data is public domain (US government work). Cassini imagery is public domain via NASA/JPL/SSI. Solar System Scope textures are CC-BY 4.0 — credit them.
+**Avoid for MIT-redistributable projects:**
+- Planet Pixel Emporium (James Hastings-Trew) — "free non-commercial" only
+- HYG Database v3+ (astronexus) — CC-BY-SA 4.0 (share-alike is viral copyleft)
+- Steve Albers' planetary maps — page declares "personal non-commercial use only" despite being derived from public-domain NASA data
+
+NASA, USGS, and PDS-hosted Cassini data are public domain (US Government works). Solar System Scope textures are CC-BY 4.0 — credit them. Björn Jónsson's terms ("publicly available, please mention origin") are functionally CC-BY. All three categories can be bundled with a permissive (MIT/BSD/Apache) project licence as long as the attributions are preserved (typically via a `THIRDPARTY.md` notice file and an in-app credits panel).
 
 ---
 
@@ -352,7 +361,7 @@ All NASA and USGS data is public domain (US government work). Cassini imagery is
 
 ## Overview
 
-A browser-based solar system simulation using Three.js, ported from the iOS SolarSystem app. Uses real Keplerian orbital mechanics (JPL J2000.0 elements) to calculate planet, moon, and Sun positions based on the current date and time. Three.js renders the 3D scene with PBR materials and NASA/public-domain texture maps on all planets and major moons. 8,920 real stars from the Hipparcos catalogue form the backdrop, with correct positions, magnitudes, and B-V colours. All bodies rotate at their real IAU sidereal rates with correct axial tilts.
+A browser-based solar system simulation using Three.js, ported from the iOS SolarSystem app. Uses real Keplerian orbital mechanics (JPL J2000.0 elements) to calculate planet, moon, and Sun positions based on the current date and time. Three.js renders the 3D scene with PBR materials and NASA/public-domain texture maps on all planets and major moons. 8,404 real stars from the Yale Bright Star Catalog (BSC5) form the backdrop, with correct positions, magnitudes, and B-V colours. All bodies rotate at their real IAU sidereal rates with correct axial tilts.
 
 Physics runs on the main thread (lightweight trig per body per frame). Rendering runs on the GPU via WebGL through Three.js with PBR materials, multi-layer Sun corona sprites, and Saturn's rings with Cassini colour/transparency maps.
 
@@ -399,7 +408,7 @@ Mission Trajectories (parallel path):
 - **Moon distance compression**: `pow(realRatio, 0.6) * 1.5` preserves relative ordering. Constants `MOON_DIST_EXPONENT` (0.6) and `MOON_DIST_SCALE` (1.5) are exported from `sceneBuilder.js` and imported by `main.js` and `missions.js` — a single-constant change tunes all moon/satellite/mission distance compression.
 - **Sprites for Sun corona**: The iOS app uses nested glow spheres with additive blending. Three.js `Sprite` with additive blending achieves the same billboard glow effect more efficiently.
 - **Throttled label updates**: Labels only re-project every 3rd frame to reduce DOM manipulation overhead.
-- **Real star catalogue**: 8,920 stars from HYG v38 database, filtered to naked-eye visibility (mag <= 6.5). ~120 brightest named stars labelled.
+- **Real star catalogue**: 8,404 stars from Yale Bright Star Catalog 5th Rev. (BSC5, Hoffleit & Warren 1991, NASA Goddard NSSDC/ADC, public domain). All entries at V ≤ 6.5 (naked-eye). ~370 named stars labelled. Build script at `tools/build_stars.py` regenerates `textures/stars.csv` from the raw VizieR catalogue.
 - **Tone mapping**: `ACESFilmicToneMapping` at exposure 1.2 gives the PBR materials a natural, film-like look matching the iOS app's SceneKit rendering.
 - **Multi-vehicle mission architecture**: Each mission has a `vehicles` array, each with independent trajectory, colour, and time window. The `primary` vehicle is tracked by the camera. This supports Apollo-style CSM/LM separation at the Moon.
 - **Dual reference frames**: Geocentric missions (Artemis II, Apollo) use Moon-aligned waypoints in km. Heliocentric missions (Voyager, Cassini, New Horizons, etc.) use `referenceFrame: 'heliocentric'` with waypoints in AU ecliptic coordinates, positioned via `eclipticToScene()` directly. Heliocentric mission groups are placed at the origin rather than Earth.
@@ -453,9 +462,8 @@ solarsystem-web/
     ├── europa_2k.jpg            # Voyager/Galileo (1024x512, 133 KB)
     ├── ganymede_2k.jpg          # Voyager/Galileo (4096x2048, 938 KB)
     ├── callisto_2k.jpg          # Voyager/Galileo (1800x900, 430 KB)
-    ├── saturn_ring_color.jpg    # Ring colour map (915x64, 9 KB)
-    ├── saturn_ring_alpha.gif    # Ring transparency (915x64, 28 KB)
-    └── stars.csv                # HYG catalogue: 8,920 stars (274 KB)
+    ├── saturn_rings.png         # Ring colour + alpha (2048x125 RGBA, 12 KB)
+    └── stars.csv                # Yale BSC5: 8,404 stars (258 KB)
 ```
 
 **Total: 7 JavaScript files, ~3,680 lines of code. 17 texture/data files. 1 HTML file.**
@@ -495,11 +503,11 @@ solarsystem-web/
 | Uranus | Voyager-based, Solar System Scope | CC-BY 4.0 |
 | Neptune | Voyager-based, Solar System Scope | CC-BY 4.0 |
 | Jupiter | NASA/JPL/SSI Cassini PIA07782 | Public domain |
-| Saturn (+rings) | Cassini composite, Planet Pixel Emporium | Free non-commercial |
+| Saturn (+rings) | Solar System Scope | CC-BY 4.0 |
 | Pluto | NASA/JHUAPL/SwRI New Horizons | Public domain |
-| Io, Europa, Ganymede | Voyager/Galileo, Steve Albers | Public domain data |
-| Callisto | Voyager/Galileo, Bjorn Jonsson | Public domain data |
-| Stars | HYG Database v38 (Hipparcos/Yale/Gliese) | Public domain |
+| Io, Ganymede, Callisto | Björn Jónsson, from NASA/JPL Voyager + Galileo data | Publicly available, attribution requested |
+| Europa | NASA/JPL Voyager/Galileo via Wikimedia | Public domain |
+| Stars | Yale Bright Star Catalog 5th Rev. (BSC5, NASA Goddard NSSDC/ADC) via VizieR V/50 | Public domain |
 
 ## Orbital Mechanics
 
@@ -577,7 +585,7 @@ The `pow(ratio, 0.6)` compression means points near the Moon's distance (~384,40
 - **Lazy-follow mission camera**: Geocentric (lunar) missions get tight Earth-Moon framing with Sun-side lighting and lazy follow: the camera snaps to Earth's current position + the trajectory's local center, zoomed to fit just the trajectory extent (using `localRadius` from `getMissionBounds()`). Azimuth is set ~31 degrees off the Sun direction (0.55 radians) for a dramatic two-thirds illuminated view; elevation 0.3 radians (~17 degrees). During playback, the camera target lerps toward Earth's current position + trajectory center each frame at `lerp(0.02)`, keeping the trajectory large and centered while Earth visibly drifts through space. Interplanetary (heliocentric) missions use the default overview camera via `resetToOverview()` — the standard solar system view shows the trajectory cleanly across the full system. User interaction (drag/scroll) clears `activeMissionId`, breaking the lazy follow and giving full manual control
 - **"Hide/Show trajectories"**: toggle in missions menu
 - **"Stop replay (1x)"**: cancels the active mission, keeps current simulation time, resets to 1x speed, clears all mission state. Also triggered by clicking any planet preset or double-click reset
-- **URL parameter**: `?mission=apollo11` auto-selects mission on load
+- **URL parameters**: `?mission=apollo11` auto-selects a mission on load; `?focus=saturn` auto-focuses the camera on a body (any planet or moon by id, e.g. `?focus=titan`, `?focus=io`)
 - **Auto-speed**: On mission selection, timeScale snaps to nearest preset targeting ~45s replay
 - **End-of-mission speed reset**: When elapsed time exceeds the mission's durationHours and timeScale > 1, it automatically resets to 1x to prevent the simulation racing onward after completion
 - All mission UI uses faint orange (#ffaa50) to differentiate from celestial object labels
@@ -625,7 +633,7 @@ THREE.Scene (black background)
 
 ### Star Rendering
 
-- 8,920 stars parsed from `textures/stars.csv` (HYG v38)
+- 8,404 stars parsed from `textures/stars.csv` (BSC5)
 - RA/Dec mapped to celestial sphere at r=500
 - 4 brightness tiers with different `PointsMaterial.size` values (non-attenuated)
 - Per-vertex B-V colour via `vertexColors: true`
@@ -821,6 +829,22 @@ This is a faithful port of the [iOS SolarSystem app](../solarsystem/). The orbit
 | `Bundle.main.path()` | `fetch()` / `TextureLoader` |
 | `simd_quatf` | `THREE.Quaternion` |
 | `SIMD3<Double>` | `THREE.Vector3` / `{x, y, z}` objects |
+
+## Licence
+
+Source code is MIT (see `LICENSE`). Bundled assets each carry their own
+licence — see `THIRDPARTY.md` for the full inventory. All bundled assets
+permit redistribution including commercial use when their attributions are
+preserved. The Credits panel in `index.html` (top-right of the date bar)
+also surfaces these to end users at runtime.
+
+Replacing assets must keep the project MIT-redistributable: avoid CC-BY-SA
+(viral/share-alike) and "non-commercial only" sources. Acceptable additions:
+NASA/USGS public-domain works, CC-BY 4.0 (e.g. Solar System Scope), and
+"publicly available, please mention origin" assets like Björn Jónsson's
+maps. The star catalogue is reproducible from `tools/build_stars.py` against
+the public-domain VizieR BSC5 (V/50) source — re-run it if you change the
+filter cutoff or want fresher names.
 
 ## Deployment
 
